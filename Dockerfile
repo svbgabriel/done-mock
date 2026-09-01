@@ -14,7 +14,7 @@ COPY src/ ./src/
 COPY public/ ./public/
 
 # Production stage
-FROM denoland/deno:distroless-2.9.5
+FROM denoland/deno:distroless-2.9.6
 ENV DENO_DIR=/deno-dir
 WORKDIR /app
 
