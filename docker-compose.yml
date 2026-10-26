@@ -1,7 +1,7 @@
 services:
   app:
     build: .
-    container_name: double-deno-mock-app
+    container_name: double-rust-mock-app
     ports:
       - "8000:8000"
     environment:
@@ -14,7 +14,7 @@ services:
 
   postgres:
     image: postgres:18-alpine
-    container_name: double-deno-mock-db
+    container_name: double-rust-mock-db
     environment:
       POSTGRES_DB: mocks
       POSTGRES_USER: mock

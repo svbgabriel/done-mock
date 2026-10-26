@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Server - Admin UI</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="alternate icon" href="/favicon.ico">
+    <link rel="stylesheet" href="/ui/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="brand">
+                <h1>⚡ Double Rust Mock</h1>
+                <span class="subtitle">Dynamic REST API Simulator</span>
+            </div>
+            <div class="header-nav">
+                <button id="tab-btn-mocks" class="nav-tab active">📋 Mocks</button>
+                <button id="tab-btn-livefeed" class="nav-tab">📡 Live Feed <span id="feed-live-indicator" class="pulse-dot"></span></button>
+            </div>
+            <div class="header-actions">
+                <button id="btn-refresh" class="btn btn-secondary">🔄 Refresh</button>
+                <button id="btn-new-mock" class="btn btn-primary">+ New Mock</button>
+            </div>
+        </header>
+
+        <div id="alert-container"></div>
+
+        <!-- TAB 1: MOCKS -->
+        <main id="tab-mocks" class="tab-content active">
+            <!-- Mocks Table -->
+            <section class="card">
+                <div class="card-header">
+                    <h2>Registered Mocks</h2>
+                    <span id="mock-count-badge" class="badge badge-info">0 mocks</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table" id="mocks-table">
+                        <thead>
+                            <tr>
+                                <th>Method</th>
+                                <th>Route / Pattern</th>
+                                <th>Type</th>
+                                <th>Priority</th>
+                                <th>Name</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mocks-table-body">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">Loading mocks...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Create/Edit Mock Form -->
+            <section class="card" id="form-card">
+                <div class="card-header">
+                    <h2 id="form-title">Create New Mock</h2>
+                    <button id="btn-cancel-edit" class="btn btn-sm btn-secondary" style="display: none;">Cancel Edit</button>
+                </div>
+
+                <form id="mock-form">
+                    <input type="hidden" id="mock-id" value="">
+
+                    <!-- Basic Information -->
+                    <div class="form-section">
+                        <h3>General Information</h3>
+                        <div class="form-row">
+                            <div class="form-group flex-2">
+                                <label for="mock-name">Identifier Name *</label>
+                                <input type="text" id="mock-name" placeholder="e.g.: Get User by ID" class="form-control" required>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="mock-method">HTTP Method *</label>
+                                <select id="mock-method" class="form-control" required>
+                                    <option value="*">* (Any Method)</option>
+                                    <option value="GET" selected>GET</option>
+                                    <option value="POST">POST</option>
+                                    <option value="PUT">PUT</option>
+                                    <option value="DELETE">DELETE</option>
+                                    <option value="PATCH">PATCH</option>
+                                </select>
+                            </div>
+                            <div class="form-group flex-2">
+                                <label for="mock-path">Route / Path Pattern *</label>
+                                <input type="text" id="mock-path" placeholder="ex: /api/users/:id" class="form-control" required>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="mock-priority">Priority</label>
+                                <input type="number" id="mock-priority" value="0" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mock Type -->
+                    <div class="form-section">
+                        <h3>Type and Response Configuration</h3>
+                        <div class="form-group">
+                            <label for="mock-type">Mock Type *</label>
+                            <select id="mock-type" class="form-control">
+                                <option value="static">Static - Fixed response</option>
+                                <option value="conditional">Conditional - Rules by Header/Query/Body</option>
+                                <option value="sequence">Sequence - Responses in series (Cycle/Stop)</option>
+                                <option value="script">JS Script (Dynamic) - Runtime execution</option>
+                                <option value="rest">REST CRUD (Stateful) - Collection with persistence</option>
+                            </select>
+                        </div>
+
+                        <!-- Panel: STATIC -->
+                        <div id="panel-static" class="type-panel">
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="static-status">HTTP Status</label>
+                                    <input type="number" id="static-status" value="200" class="form-control">
+                                </div>
+                                <div class="form-group flex-2">
+                                    <label for="static-content-type">Content-Type (Optional)</label>
+                                    <input type="text" id="static-content-type" placeholder="e.g.: application/json" class="form-control">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="static-body">Response Body</label>
+                                <textarea id="static-body" rows="4" class="form-control code-font" placeholder='{"status": "ok"}'></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Panel: CONDITIONAL -->
+                        <div id="panel-conditional" class="type-panel" style="display: none;">
+                            <div class="section-header">
+                                <label><strong>Match Conditions (Evaluated in order)</strong></label>
+                                <button type="button" id="btn-add-condition" class="btn btn-sm btn-secondary">+ Add Condition</button>
+                            </div>
+                            <div id="conditions-list" class="dynamic-list"></div>
+
+                            <div class="form-group" style="margin-top: 16px;">
+                                <label><strong>Else Response (Fallback if no condition is met)</strong></label>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="else-status">Status</label>
+                                        <input type="number" id="else-status" placeholder="404" class="form-control">
+                                    </div>
+                                    <div class="form-group flex-2">
+                                        <label for="else-body">Body</label>
+                                        <input type="text" id="else-body" placeholder="No condition matched..." class="form-control">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Panel: SEQUENCE -->
+                        <div id="panel-sequence" class="type-panel" style="display: none;">
+                            <div class="form-group">
+                                <label for="sequence-mode">Progression Mode</label>
+                                <select id="sequence-mode" class="form-control">
+                                    <option value="cycle">Cycle (Loops back to the beginning)</option>
+                                    <option value="stopAtEnd">StopAtEnd (Repeats the last response indefinitely)</option>
+                                </select>
+                            </div>
+                            <div class="section-header">
+                                <label><strong>Sequential Responses List</strong></label>
+                                <button type="button" id="btn-add-sequence-item" class="btn btn-sm btn-secondary">+ Add Step</button>
+                            </div>
+                            <div id="sequence-list" class="dynamic-list"></div>
+                        </div>
+
+                        <!-- Panel: SCRIPT -->
+                        <div id="panel-script" class="type-panel" style="display: none;">
+                            <div class="form-group">
+                                <label for="script-timeout">Timeout (ms)</label>
+                                <input type="number" id="script-timeout" placeholder="2000" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="script-code">JavaScript Code</label>
+                                <textarea id="script-code" rows="8" class="form-control code-font" placeholder="// Access context.method, context.path, context.pathParams, context.headers, context.query, context.body&#10;return { status: 200, body: { greeting: 'Hello world' } };"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Panel: REST -->
+                        <div id="panel-rest" class="type-panel" style="display: none;">
+                            <div class="form-group">
+                                <label for="rest-id-field">Identifier Field (ID Field)</label>
+                                <input type="text" id="rest-id-field" value="id" placeholder="id" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="rest-initial-state">Initial State (JSON Array of Objects)</label>
+                                <textarea id="rest-initial-state" rows="6" class="form-control code-font" placeholder='[&#10;  { "id": "1", "name": "Item One" },&#10;  { "id": "2", "name": "Item Two" }&#10;]'></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success btn-lg" id="btn-save-mock">💾 Save Mock</button>
+                        <button type="button" class="btn btn-secondary" id="btn-reset-form">🧹 Clear Form</button>
+                    </div>
+                </form>
+            </section>
+        </main>
+
+        <!-- TAB 2: LIVE FEED -->
+        <main id="tab-livefeed" class="tab-content" style="display: none;">
+            <section class="card">
+                <div class="card-header">
+                    <h2>Real-Time Request Monitor (SSE)</h2>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span id="sse-status" class="badge badge-success">🟢 Connected</span>
+                        <button id="btn-clear-feed" class="btn btn-sm btn-secondary">Clear Logs</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table" id="feed-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Method</th>
+                                <th>Path</th>
+                                <th>Matched Mock</th>
+                                <th>Status</th>
+                                <th>Latency</th>
+                            </tr>
+                        </thead>
+                        <tbody id="feed-table-body">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">Waiting for requests...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/ui/app.js"></script>
+</body>
+</html>

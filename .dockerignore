@@ -1,0 +1,39 @@
+# Build artifacts
+target/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+.dockerignore
+docker-compose.yml
+Dockerfile
+
+# Documentation
+*.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Junie session files
+.junie/
+
+# Test artifacts
+tests/coverage/

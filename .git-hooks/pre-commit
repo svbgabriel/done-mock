@@ -1,3 +1,11 @@
-deno fmt --check
-deno lint
-deno task test
+#!/usr/bin/env bash
+set -e
+
+echo "▶ Running cargo fmt --check..."
+cargo fmt --check
+
+echo "▶ Running cargo clippy..."
+cargo clippy -- -D warnings
+
+echo "▶ Running cargo test..."
+cargo test

@@ -1,30 +1,35 @@
-# Build stage
-FROM denoland/deno:latest AS builder
-# Point Deno's cache at a known location so it can be copied to the next stage
-ENV DENO_DIR=/deno-dir
+# Build stage - download dependencies first for better caching
+FROM rust:1.99-slim AS dependency
 WORKDIR /app
 
-# Copy manifests first so the dependency install layer caches across
-# source-only edits
-COPY deno.jsonc deno.lock ./
-RUN deno ci --prod --skip-types
+COPY Cargo.toml Cargo.lock ./
+RUN cargo fetch --locked
+RUN mkdir -p target && cargo build --release --target-dir target
 
-# Then copy the rest of the source
+# Build stage - compile the application
+FROM rust:1.99-slim AS builder
+WORKDIR /app
+
+# Install build dependencies for SQLx (native-tls)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends pkg-config libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy dependency layer from previous stage
+COPY --from=dependency /app/target ./target
+COPY Cargo.toml Cargo.lock ./
+
+# Copy source code and build
 COPY src/ ./src/
-COPY public/ ./public/
+COPY ui/ ./ui/
+RUN cargo build --release --locked
 
-# Production stage
-FROM denoland/deno:distroless-2.9.6
-ENV DENO_DIR=/deno-dir
+# Production stage - minimal distroless image
+FROM gcr.io/distroless/static-debian12
+
 WORKDIR /app
+COPY --from=builder /app/target/release/mock-server ./mock-server
+COPY --from=builder /app/ui ./ui
 
-# Copy the populated Deno cache so the runtime stage has the dependencies
-COPY --chown=nonroot:nonroot --from=builder /deno-dir /deno-dir
-
-# Copy application
-COPY --chown=nonroot:nonroot --from=builder /app .
-
-# Change to nonroot user
-USER nonroot
-
-CMD ["run", "--allow-net", "--allow-read", "--allow-env", "--unstable-worker-options", "src/main.ts"]
+EXPOSE 8000
+ENTRYPOINT ["./mock-server"]
