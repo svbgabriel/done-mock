@@ -1,0 +1,232 @@
+use crate::error::MockServerError;
+use crate::mock_server::MockServerState;
+use crate::model::{Mock, MockType, PartialMock};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        IntoResponse,
+    },
+    routing::{get, post},
+    Json, Router,
+};
+use futures_util::stream::{self, Stream, StreamExt};
+use serde_json::json;
+use std::convert::Infallible;
+use tokio_stream::wrappers::BroadcastStream;
+
+pub fn create_admin_router() -> Router<MockServerState> {
+    Router::new()
+        .route("/__admin/health", get(health_check))
+        .route("/__admin/mocks", get(list_mocks).post(create_mock))
+        .route(
+            "/__admin/mocks/{id}",
+            get(get_mock).put(update_mock).delete(delete_mock),
+        )
+        .route("/__admin/mocks/{id}/reset", post(reset_mock))
+        .route("/__admin/livefeed", get(livefeed_sse))
+}
+
+async fn health_check() -> impl IntoResponse {
+    Json(json!({ "status": "ok" }))
+}
+
+fn store_error_response(err: MockServerError) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        err.status_code(),
+        Json(json!({ "error": err.error_type(), "message": err.to_string() })),
+    )
+}
+
+async fn list_mocks(State(state): State<MockServerState>) -> impl IntoResponse {
+    let result = match state.store.list().await {
+        Ok(mocks) => (StatusCode::OK, Json(json!(mocks))),
+        Err(err) => store_error_response(err),
+    };
+    result.into_response()
+}
+
+fn validate_mock(mock: &Mock) -> Result<(), &'static str> {
+    if mock.name.trim().is_empty() {
+        return Err("Field 'name' is required");
+    }
+    if mock.method.trim().is_empty() {
+        return Err("Field 'method' is required");
+    }
+    if mock.path.trim().is_empty() {
+        return Err("Field 'path' is required");
+    }
+    if mock.path.starts_with("/__admin") {
+        return Err("Field 'path' cannot start with '/__admin'");
+    }
+
+    match mock.mock_type {
+        MockType::Static => {
+            if mock.response.is_none() {
+                return Err("Static mock requires 'response' object");
+            }
+        }
+        MockType::Conditional => {
+            let conditions = mock.conditions.as_deref().unwrap_or(&[]);
+            if conditions.is_empty() {
+                return Err("Conditional mock requires 'conditions' array with at least 1 item");
+            }
+        }
+        MockType::Sequence => {
+            let sequence = mock.sequence.as_deref().unwrap_or(&[]);
+            if sequence.is_empty() {
+                return Err("Sequence mock requires 'sequence' array with at least 1 item");
+            }
+        }
+        MockType::Script => {
+            let script = mock.script.as_deref().unwrap_or("").trim();
+            if script.is_empty() {
+                return Err("Script mock requires non-empty 'script' field");
+            }
+        }
+        MockType::Rest => {
+            // restInitialState is optional
+        }
+    }
+
+    Ok(())
+}
+
+async fn create_mock(
+    State(state): State<MockServerState>,
+    Json(mock): Json<Mock>,
+) -> impl IntoResponse {
+    if let Err(msg) = validate_mock(&mock) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "Validation Error", "message": msg })),
+        )
+            .into_response();
+    }
+
+    let result = match state.store.create(mock).await {
+        Ok(created) => {
+            state.refresh_cache().await;
+            (StatusCode::CREATED, Json(json!(created)))
+        }
+        Err(err) => store_error_response(err),
+    };
+    result.into_response()
+}
+
+async fn get_mock(
+    State(state): State<MockServerState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let result = match state.store.get(&id).await {
+        Ok(Some(mock)) => (StatusCode::OK, Json(json!(mock))),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(
+                json!({ "error": "Not Found", "message": format!("Mock with id '{}' not found", id) }),
+            ),
+        ),
+        Err(err) => store_error_response(err),
+    };
+    result.into_response()
+}
+
+async fn update_mock(
+    State(state): State<MockServerState>,
+    Path(id): Path<String>,
+    Json(mock_val): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let partial: PartialMock = match serde_json::from_value(mock_val.clone()) {
+        Ok(p) => p,
+        Err(err) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "Validation Error", "message": err.to_string() })),
+            )
+                .into_response();
+        }
+    };
+
+    if let Some(path) = &partial.path {
+        if path.starts_with("/__admin") {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": "Validation Error", "message": "Field 'path' cannot start with '/__admin'" })),
+            )
+                .into_response();
+        }
+    }
+
+    state.sequence_state.reset(&id);
+
+    let result = match state.store.update(&id, partial).await {
+        Ok(updated) => {
+            state.refresh_cache().await;
+            (StatusCode::OK, Json(json!(updated)))
+        }
+        Err(err) => store_error_response(err),
+    };
+    result.into_response()
+}
+
+async fn delete_mock(
+    State(state): State<MockServerState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    state.sequence_state.reset(&id);
+
+    let result = match state.store.delete(&id).await {
+        Ok(()) => {
+            state.refresh_cache().await;
+            (StatusCode::OK, Json(json!({ "success": true })))
+        }
+        Err(err) => store_error_response(err),
+    };
+    result.into_response()
+}
+
+async fn reset_mock(
+    State(state): State<MockServerState>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    state.sequence_state.reset(&id);
+
+    if let Ok(Some(mock)) = state.store.get(&id).await {
+        if mock.mock_type == MockType::Rest {
+            let initial = mock.rest_initial_state.clone().unwrap_or_default();
+            let _ = state
+                .store
+                .update_state(&id, serde_json::to_value(&initial).unwrap())
+                .await;
+        }
+    }
+
+    (StatusCode::OK, Json(json!({ "success": true })))
+}
+
+async fn livefeed_sse(
+    State(state): State<MockServerState>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let (history, rx) = state.live_feed.subscribe();
+
+    let history_events = history.into_iter().map(|entry| {
+        let json_str = serde_json::to_string(&entry).unwrap_or_default();
+        Ok(Event::default().data(json_str))
+    });
+    let history_stream = stream::iter(history_events);
+
+    let live_stream = BroadcastStream::new(rx).filter_map(|msg| async move {
+        match msg {
+            Ok(entry) => {
+                let json_str = serde_json::to_string(&entry).unwrap_or_default();
+                Some(Ok(Event::default().data(json_str)))
+            }
+            Err(_) => None,
+        }
+    });
+
+    let combined = history_stream.chain(live_stream);
+
+    Sse::new(combined).keep_alive(KeepAlive::default())
+}

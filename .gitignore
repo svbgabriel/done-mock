@@ -1,4 +1,2 @@
-.idea
-build
-coverage
-.DS_Store
+target/
+.idea/

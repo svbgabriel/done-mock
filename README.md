@@ -1,27 +1,28 @@
-# double-deno-mock
+# done-mock
 
-A customizable mock HTTP server built with Deno and Hono. Inspired by [sMockin](https://github.com/matthewgallina/smockin).
+A customizable mock HTTP server built with Rust, Axum, and `rquickjs` (QuickJS). Inspired by [sMockin](https://github.com/matthewgallina/smockin).
 
 ## Features
 
 - **Static Mocks**: Fixed status, headers, and body.
 - **Conditional Mocks**: Branching logic based on headers, query params, or JSON body fields.
 - **Sequence Mocks**: Returns a sequence of responses across multiple calls (supports cycling or stopping at the end).
-- **Script Mocks**: Write custom logic in JS to compute the response, executed in a sandboxed Worker.
+- **Script Mocks**: Write custom logic in JS to compute the response, executed in a sandboxed QuickJS runtime via `rquickjs`.
 - **REST Mocks**: Stateful REST API simulation with persistent resource collections and CRUD support.
 - **Management UI**: Simple web interface at `/ui` to manage mocks.
 - **Persistence**: Mocks are stored in-memory (default) or PostgreSQL.
+- **Live Feed SSE**: Real-time streaming of request history and events at `GET /__admin/livefeed`.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Deno installed.
+- Rust and Cargo installed.
 
 ### Run the server
 
 ```bash
-deno task dev
+cargo run
 ```
 
 The server will start on port 8000 by default. Access the UI at `http://localhost:8000/ui`.
@@ -32,28 +33,41 @@ The server will start on port 8000 by default. Access the UI at `http://localhos
 - `DB_DRIVER`: `postgres` or `memory` (default).
 - `POSTGRES_URL`: PostgreSQL connection URL. Used only if `DB_DRIVER=postgres`.
 - `SCRIPT_TIMEOUT_MS`: Script execution timeout in milliseconds (default: 2000).
+- `POOL_MAX_CONNECTIONS`: Maximum number of PostgreSQL connections in the pool (default: 10).
 
-> **Note**: Sandboxed script worker execution requires Deno's `--unstable-worker-options` flag, which is enabled in `deno.jsonc` tasks.
+### Docker
+
+Build and run with Docker Compose (includes PostgreSQL):
+
+```bash
+docker compose up --build
+```
+
+The server will be available at `http://localhost:8000`.
+
+To run without PostgreSQL (in-memory mode):
+
+```bash
+docker build -t done-mock .
+docker run -p 8000:8000 -e DB_DRIVER=memory done-mock
+```
 
 ## Development
 
-### Tasks
+### Build and Run
 
-- `deno task start`: Start the server.
-- `deno task dev`: Start the server with watch mode.
-- `deno task prepare`: Should run once to install the git hooks.
-- `deno task test`: Run all tests.
+- `cargo run`: Start the server.
+- `cargo test`: Run all tests.
 
 ### Test
 
 ```bash
-deno task test
+cargo test
 ```
 
 ## How to define mocks
 
-Mocks match incoming requests by **Method** and **Path Pattern** (supports `URLPattern` syntax like `/users/:id`). When
-multiple mocks match, the one with the highest **Priority** is chosen.
+Mocks match incoming requests by **Method** and **Path Pattern** (supports URL pattern syntax like `/users/:id`). When multiple mocks match, the one with the highest **Priority** is chosen.
 
 ### Static Mock Example
 
@@ -120,11 +134,11 @@ Returns responses in sequence on each call. With `sequenceMode: "cycle"`, the se
 
 ### Script Mock Example
 
-User scripts run in a sandboxed Worker and receive a global `context` object representing the incoming request:
+User scripts run in a sandboxed QuickJS runtime and receive a global `context` object representing the incoming request:
 
 - `context.method`: Request HTTP method (e.g. `'GET'`, `'POST'`).
 - `context.path`: Request path (e.g. `'/users/42'`).
-- `context.pathParams`: Object with named path parameters from `URLPattern` route matching (e.g. `{ id: '42' }` for `/users/:id`).
+- `context.pathParams`: Object with named path parameters from route matching (e.g. `{ id: '42' }` for `/users/:id`).
 - `context.query`: Object with URL query parameters (e.g. `context.query.filter`).
 - `context.headers`: Object with request headers in lowercase (e.g. `context.headers['content-type']`).
 - `context.body`: Parsed JSON request body (if `Content-Type` is `application/json`), or `null`.
@@ -153,7 +167,7 @@ return {
 
 The `rest` type simulates a full RESTful API for a collection of resources. It maintains a persistent state (a JSON array) in the database.
 
-To use it effectively, define a path pattern that includes an optional `:id` parameter, such as `/api/users/:id?` or create two mocks if needed, but typically a single pattern like `/api/items/:id?` works if the engine matches it. 
+To use it effectively, define a path pattern that includes an optional `:id` parameter, such as `/api/users/:id?` or create two mocks if needed, but typically a single pattern like `/api/items/:id?` works if the engine matches it.
 *Note: The current implementation decides between collection and item operations based on whether the `:id` path parameter is present in the matched request.*
 
 #### Supported Operations
@@ -189,3 +203,16 @@ To use it effectively, define a path pattern that includes an optional `:id` par
   ]
 }
 ```
+
+## Admin API (`/__admin`)
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/__admin/mocks` | List all registered mocks |
+| `GET` | `/__admin/mocks/:id` | Get mock by ID |
+| `POST` | `/__admin/mocks` | Create a new mock with validations |
+| `PUT` | `/__admin/mocks/:id` | Update mock and reset sequence |
+| `DELETE` | `/__admin/mocks/:id` | Delete mock and reset sequence |
+| `POST` | `/__admin/mocks/:id/reset` | Reset sequence index and restore REST mock initial state |
+| `GET` | `/__admin/livefeed` | SSE streaming of history and real-time events |
+| `GET` | `/__admin/health` | Application health check |

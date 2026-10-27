@@ -1,1 +1,29 @@
-deno run --allow-read .git-hooks/scripts/commit-lint.ts "$1"
+#!/usr/bin/env bash
+set -e
+
+commit_msg_file="$1"
+if [ -z "$commit_msg_file" ]; then
+  echo "Error: No commit message file provided."
+  exit 1
+fi
+
+commit_msg=$(cat "$commit_msg_file" | sed '/^#/d')
+trimmed_msg=$(echo "$commit_msg" | xargs)
+
+if [ -z "$trimmed_msg" ]; then
+  echo "Error: Commit message is empty."
+  exit 1
+fi
+
+if [ ${#trimmed_msg} -gt 200 ]; then
+  echo "Error: Commit message is too long (${#trimmed_msg} > 200 characters)"
+  exit 1
+fi
+
+conventional_pattern="^(feat|fix|docs|style|refactor|test|chore|perf|build|ci|revert|wip)(\(.+\))?!?: .+"
+if ! echo "$trimmed_msg" | grep -Eq "$conventional_pattern"; then
+  echo "Error: Commit message does not follow conventional commits format."
+  echo "Expected: <type>(<scope>): <description>"
+  echo "Types: feat, fix, docs, style, refactor, test, chore, perf, build, ci, revert, wip"
+  exit 1
+fi
