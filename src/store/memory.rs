@@ -68,53 +68,7 @@ impl MockStore for InMemoryMockStore {
             .get_mut(id)
             .ok_or_else(|| anyhow!("Mock with id '{}' not found", id))?;
 
-        if let Some(name) = partial.name {
-            existing.name = name;
-        }
-        if let Some(method) = partial.method {
-            existing.method = method;
-        }
-        if let Some(path) = partial.path {
-            existing.path = path;
-        }
-        if let Some(mock_type) = partial.mock_type {
-            existing.mock_type = mock_type;
-        }
-        if let Some(priority) = partial.priority {
-            existing.priority = priority;
-        }
-        if partial.response.is_some() {
-            existing.response = partial.response;
-        }
-        if partial.conditions.is_some() {
-            existing.conditions = partial.conditions;
-        }
-        if partial.else_response.is_some() {
-            existing.else_response = partial.else_response;
-        }
-        if partial.sequence.is_some() {
-            existing.sequence = partial.sequence;
-        }
-        if partial.sequence_mode.is_some() {
-            existing.sequence_mode = partial.sequence_mode;
-        }
-        if partial.script.is_some() {
-            existing.script = partial.script;
-        }
-        if partial.script_timeout_ms.is_some() {
-            existing.script_timeout_ms = partial.script_timeout_ms;
-        }
-        if partial.rest_id_field.is_some() {
-            existing.rest_id_field = partial.rest_id_field;
-        }
-        if partial.rest_initial_state.is_some() {
-            existing.rest_initial_state = partial.rest_initial_state;
-        }
-        if partial.state.is_some() {
-            existing.state = partial.state;
-        }
-
-        existing.updated_at = default_iso_now();
+        existing.apply_partial(partial);
 
         Ok(existing.clone())
     }

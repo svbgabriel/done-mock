@@ -104,11 +104,11 @@ pub struct Mock {
     #[serde(default)]
     pub priority: i32,
 
-    // Static Mock
+    // Static Mock fields
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub response: Option<MockResponse>,
 
-    // Conditional Mock
+    // Conditional Mock fields
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conditions: Option<Vec<Condition>>,
     #[serde(
@@ -118,7 +118,7 @@ pub struct Mock {
     )]
     pub else_response: Option<MockResponse>,
 
-    // Sequence Mock
+    // Sequence Mock fields
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sequence: Option<Vec<MockResponse>>,
     #[serde(
@@ -128,7 +128,7 @@ pub struct Mock {
     )]
     pub sequence_mode: Option<SequenceMode>,
 
-    // Script Mock
+    // Script Mock fields
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub script: Option<String>,
     #[serde(
@@ -138,7 +138,7 @@ pub struct Mock {
     )]
     pub script_timeout_ms: Option<u64>,
 
-    // REST Mock
+    // REST Mock fields
     #[serde(
         default,
         rename = "restIdField",
@@ -166,6 +166,60 @@ fn default_uuid() -> String {
 
 pub fn default_iso_now() -> String {
     Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
+}
+
+impl Mock {
+    /// Applies the fields present in `PartialMock` to this `Mock`,
+    /// updating the `updated_at` timestamp.
+    pub fn apply_partial(&mut self, partial: PartialMock) {
+        if let Some(name) = partial.name {
+            self.name = name;
+        }
+        if let Some(method) = partial.method {
+            self.method = method;
+        }
+        if let Some(path) = partial.path {
+            self.path = path;
+        }
+        if let Some(mock_type) = partial.mock_type {
+            self.mock_type = mock_type;
+        }
+        if let Some(priority) = partial.priority {
+            self.priority = priority;
+        }
+        if partial.response.is_some() {
+            self.response = partial.response;
+        }
+        if partial.conditions.is_some() {
+            self.conditions = partial.conditions;
+        }
+        if partial.else_response.is_some() {
+            self.else_response = partial.else_response;
+        }
+        if partial.sequence.is_some() {
+            self.sequence = partial.sequence;
+        }
+        if partial.sequence_mode.is_some() {
+            self.sequence_mode = partial.sequence_mode;
+        }
+        if partial.script.is_some() {
+            self.script = partial.script;
+        }
+        if partial.script_timeout_ms.is_some() {
+            self.script_timeout_ms = partial.script_timeout_ms;
+        }
+        if partial.rest_id_field.is_some() {
+            self.rest_id_field = partial.rest_id_field;
+        }
+        if partial.rest_initial_state.is_some() {
+            self.rest_initial_state = partial.rest_initial_state;
+        }
+        if partial.state.is_some() {
+            self.state = partial.state;
+        }
+
+        self.updated_at = default_iso_now();
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
