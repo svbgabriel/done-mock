@@ -223,4 +223,442 @@ mod tests {
         assert_eq!(list3.len(), 1);
         assert_eq!(list3[0].id, "m-1");
     }
+
+    #[tokio::test]
+    async fn test_in_memory_store_init() {
+        let store = InMemoryMockStore::new();
+        store.init().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_list_empty() {
+        let store = InMemoryMockStore::new();
+        let list = store.list().await.unwrap();
+        assert!(list.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_get_existing() {
+        let store = InMemoryMockStore::new();
+        let mock = Mock {
+            id: "m-1".to_string(),
+            name: "Test".to_string(),
+            method: "GET".to_string(),
+            path: "/test".to_string(),
+            mock_type: MockType::Static,
+            priority: 0,
+            response: Some(MockResponse::default()),
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        };
+        store.create(mock).await.unwrap();
+        let found = store.get("m-1").await.unwrap();
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().name, "Test");
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_get_nonexistent() {
+        let store = InMemoryMockStore::new();
+        let found = store.get("nonexistent").await.unwrap();
+        assert!(found.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_create_generates_id() {
+        let store = InMemoryMockStore::new();
+        let mock = Mock {
+            id: "".to_string(),
+            name: "Auto ID".to_string(),
+            method: "GET".to_string(),
+            path: "/test".to_string(),
+            mock_type: MockType::Static,
+            priority: 0,
+            response: Some(MockResponse::default()),
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "".to_string(),
+            updated_at: "".to_string(),
+        };
+        let created = store.create(mock).await.unwrap();
+        assert!(!created.id.is_empty());
+        assert!(!created.created_at.is_empty());
+        assert!(!created.updated_at.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_create_preserves_id() {
+        let store = InMemoryMockStore::new();
+        let mock = Mock {
+            id: "custom-id".to_string(),
+            name: "Custom ID".to_string(),
+            method: "GET".to_string(),
+            path: "/test".to_string(),
+            mock_type: MockType::Static,
+            priority: 0,
+            response: Some(MockResponse::default()),
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "".to_string(),
+            updated_at: "".to_string(),
+        };
+        let created = store.create(mock).await.unwrap();
+        assert_eq!(created.id, "custom-id");
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_create_rest_initializes_state() {
+        let store = InMemoryMockStore::new();
+        let mock = Mock {
+            id: "rest-1".to_string(),
+            name: "REST Mock".to_string(),
+            method: "GET".to_string(),
+            path: "/items".to_string(),
+            mock_type: MockType::Rest,
+            priority: 0,
+            response: None,
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: Some("id".to_string()),
+            rest_initial_state: Some(vec![
+                serde_json::json!({"id": "1", "name": "Item 1"}),
+                serde_json::json!({"id": "2", "name": "Item 2"}),
+            ]),
+            state: None,
+            created_at: "".to_string(),
+            updated_at: "".to_string(),
+        };
+        let created = store.create(mock).await.unwrap();
+        assert!(created.state.is_some());
+        let state = created.state.unwrap();
+        assert_eq!(state.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_update_not_found() {
+        let store = InMemoryMockStore::new();
+        let result = store
+            .update(
+                "nonexistent",
+                PartialMock {
+                    name: Some("Updated".to_string()),
+                    ..Default::default()
+                },
+            )
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_update_name() {
+        let store = InMemoryMockStore::new();
+        let mock = Mock {
+            id: "m-1".to_string(),
+            name: "Original".to_string(),
+            method: "GET".to_string(),
+            path: "/test".to_string(),
+            mock_type: MockType::Static,
+            priority: 0,
+            response: Some(MockResponse::default()),
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        };
+        store.create(mock).await.unwrap();
+
+        let updated = store
+            .update(
+                "m-1",
+                PartialMock {
+                    name: Some("Renamed".to_string()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(updated.name, "Renamed");
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_update_method_and_path() {
+        let store = InMemoryMockStore::new();
+        let mock = Mock {
+            id: "m-1".to_string(),
+            name: "Test".to_string(),
+            method: "GET".to_string(),
+            path: "/old".to_string(),
+            mock_type: MockType::Static,
+            priority: 0,
+            response: Some(MockResponse::default()),
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        };
+        store.create(mock).await.unwrap();
+
+        let updated = store
+            .update(
+                "m-1",
+                PartialMock {
+                    method: Some("POST".to_string()),
+                    path: Some("/new".to_string()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(updated.method, "POST");
+        assert_eq!(updated.path, "/new");
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_delete_not_found() {
+        let store = InMemoryMockStore::new();
+        let result = store.delete("nonexistent").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_update_state() {
+        let store = InMemoryMockStore::new();
+        let mock = Mock {
+            id: "m-1".to_string(),
+            name: "REST".to_string(),
+            method: "GET".to_string(),
+            path: "/items".to_string(),
+            mock_type: MockType::Rest,
+            priority: 0,
+            response: None,
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: Some(vec![serde_json::json!({"id": "1"})]),
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        };
+        store.create(mock).await.unwrap();
+
+        let new_state = serde_json::json!([
+            {"id": "1"},
+            {"id": "2"}
+        ]);
+        store.update_state("m-1", new_state).await.unwrap();
+
+        let updated = store.get("m-1").await.unwrap().unwrap();
+        assert!(updated.state.is_some());
+        assert_eq!(updated.state.unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_update_state_not_found() {
+        let store = InMemoryMockStore::new();
+        let result = store
+            .update_state("nonexistent", serde_json::json!([]))
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_clone() {
+        let store = InMemoryMockStore::new();
+        let mock = Mock {
+            id: "m-1".to_string(),
+            name: "Test".to_string(),
+            method: "GET".to_string(),
+            path: "/test".to_string(),
+            mock_type: MockType::Static,
+            priority: 0,
+            response: Some(MockResponse::default()),
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        };
+        store.create(mock).await.unwrap();
+
+        let store2 = store.clone();
+        let list = store2.list().await.unwrap();
+        assert_eq!(list.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_default() {
+        let store = InMemoryMockStore::default();
+        let list = store.list().await.unwrap();
+        assert!(list.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_update_all_fields() {
+        let store = InMemoryMockStore::new();
+        let mock = Mock {
+            id: "m-1".to_string(),
+            name: "Original".to_string(),
+            method: "GET".to_string(),
+            path: "/old".to_string(),
+            mock_type: MockType::Static,
+            priority: 0,
+            response: Some(MockResponse::default()),
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        };
+        store.create(mock).await.unwrap();
+
+        let updated = store
+            .update(
+                "m-1",
+                PartialMock {
+                    name: Some("Updated".to_string()),
+                    method: Some("POST".to_string()),
+                    path: Some("/new".to_string()),
+                    mock_type: Some(MockType::Conditional),
+                    priority: Some(10),
+                    response: Some(MockResponse {
+                        status: 201,
+                        headers: None,
+                        body: Some("created".to_string()),
+                        content_type: None,
+                    }),
+                    conditions: None,
+                    else_response: None,
+                    sequence: None,
+                    sequence_mode: None,
+                    script: None,
+                    script_timeout_ms: None,
+                    rest_id_field: None,
+                    rest_initial_state: None,
+                    state: None,
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(updated.name, "Updated");
+        assert_eq!(updated.method, "POST");
+        assert_eq!(updated.path, "/new");
+        assert_eq!(updated.mock_type, MockType::Conditional);
+        assert_eq!(updated.priority, 10);
+        assert_eq!(updated.response.as_ref().unwrap().status, 201);
+    }
+
+    #[tokio::test]
+    async fn test_in_memory_store_list_sorting_by_created_at() {
+        let store = InMemoryMockStore::new();
+
+        // Same priority, different created_at
+        let mock_older = Mock {
+            id: "older".to_string(),
+            name: "Older".to_string(),
+            method: "GET".to_string(),
+            path: "/a".to_string(),
+            mock_type: MockType::Static,
+            priority: 5,
+            response: Some(MockResponse::default()),
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        };
+
+        let mock_newer = Mock {
+            id: "newer".to_string(),
+            name: "Newer".to_string(),
+            method: "GET".to_string(),
+            path: "/b".to_string(),
+            mock_type: MockType::Static,
+            priority: 5,
+            response: Some(MockResponse::default()),
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "2026-02-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-02-01T00:00:00.000Z".to_string(),
+        };
+
+        store.create(mock_older).await.unwrap();
+        store.create(mock_newer).await.unwrap();
+
+        let list = store.list().await.unwrap();
+        assert_eq!(list.len(), 2);
+        // Same priority, newer created_at first
+        assert_eq!(list[0].id, "newer");
+        assert_eq!(list[1].id, "older");
+    }
 }

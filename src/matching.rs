@@ -231,4 +231,363 @@ mod tests {
         assert!(item_res2.is_some());
         assert_eq!(item_res2.unwrap().get("id").unwrap(), "456");
     }
+
+    #[test]
+    fn test_wildcard_matching() {
+        let res = match_path_pattern("/api/*", "/api/users", false);
+        assert!(res.is_some());
+
+        let res = match_path_pattern("/api/*", "/api/users/123/orders", false);
+        assert!(res.is_some());
+    }
+
+    #[test]
+    fn test_no_match() {
+        let res = match_path_pattern("/users", "/orders", false);
+        assert!(res.is_none());
+
+        let res = match_path_pattern("/users/:id", "/users", false);
+        assert!(res.is_none());
+    }
+
+    #[test]
+    fn test_exact_match() {
+        let res = match_path_pattern("/api/health", "/api/health", false);
+        assert!(res.is_some());
+        assert!(res.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_optional_params() {
+        let res = match_path_pattern("/users/:id/:format?", "/users/42", false);
+        assert!(res.is_some());
+        let params = res.unwrap();
+        assert_eq!(params.get("id").unwrap(), "42");
+
+        let res = match_path_pattern("/users/:id/:format?", "/users/42/json", false);
+        assert!(res.is_some());
+        let params = res.unwrap();
+        assert_eq!(params.get("id").unwrap(), "42");
+        assert_eq!(params.get("format").unwrap(), "json");
+    }
+
+    #[test]
+    fn test_root_path() {
+        let res = match_path_pattern("/", "/", false);
+        assert!(res.is_some());
+    }
+
+    #[test]
+    fn test_matches_mock_method_wildcard() {
+        let mock = Mock {
+            id: "1".to_string(),
+            name: "Wildcard".to_string(),
+            method: "*".to_string(),
+            path: "/api/test".to_string(),
+            mock_type: MockType::Static,
+            priority: 0,
+            response: None,
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        };
+        let req = MockRequest {
+            method: "DELETE".to_string(),
+            path: "/api/test".to_string(),
+            path_params: HashMap::new(),
+            headers: HashMap::new(),
+            query: HashMap::new(),
+            body: "".to_string(),
+            json_body: None,
+        };
+        assert!(matches_mock(&mock, &req).is_some());
+    }
+
+    #[test]
+    fn test_matches_mock_method_case_insensitive() {
+        let mock = Mock {
+            id: "1".to_string(),
+            name: "Get Mock".to_string(),
+            method: "GET".to_string(),
+            path: "/api/test".to_string(),
+            mock_type: MockType::Static,
+            priority: 0,
+            response: None,
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        };
+        let req = MockRequest {
+            method: "get".to_string(),
+            path: "/api/test".to_string(),
+            path_params: HashMap::new(),
+            headers: HashMap::new(),
+            query: HashMap::new(),
+            body: "".to_string(),
+            json_body: None,
+        };
+        assert!(matches_mock(&mock, &req).is_some());
+    }
+
+    #[test]
+    fn test_matches_mock_method_mismatch() {
+        let mock = Mock {
+            id: "1".to_string(),
+            name: "Post Mock".to_string(),
+            method: "POST".to_string(),
+            path: "/api/test".to_string(),
+            mock_type: MockType::Static,
+            priority: 0,
+            response: None,
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        };
+        let req = MockRequest {
+            method: "GET".to_string(),
+            path: "/api/test".to_string(),
+            path_params: HashMap::new(),
+            headers: HashMap::new(),
+            query: HashMap::new(),
+            body: "".to_string(),
+            json_body: None,
+        };
+        assert!(matches_mock(&mock, &req).is_none());
+    }
+
+    #[test]
+    fn test_find_best_match_by_priority() {
+        let mocks = vec![
+            Mock {
+                id: "low".to_string(),
+                name: "Low Priority".to_string(),
+                method: "GET".to_string(),
+                path: "/api/test".to_string(),
+                mock_type: MockType::Static,
+                priority: 1,
+                response: None,
+                conditions: None,
+                else_response: None,
+                sequence: None,
+                sequence_mode: None,
+                script: None,
+                script_timeout_ms: None,
+                rest_id_field: None,
+                rest_initial_state: None,
+                state: None,
+                created_at: "2026-01-01T00:00:00.000Z".to_string(),
+                updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+            },
+            Mock {
+                id: "high".to_string(),
+                name: "High Priority".to_string(),
+                method: "GET".to_string(),
+                path: "/api/test".to_string(),
+                mock_type: MockType::Static,
+                priority: 10,
+                response: None,
+                conditions: None,
+                else_response: None,
+                sequence: None,
+                sequence_mode: None,
+                script: None,
+                script_timeout_ms: None,
+                rest_id_field: None,
+                rest_initial_state: None,
+                state: None,
+                created_at: "2026-01-01T00:00:00.000Z".to_string(),
+                updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+            },
+        ];
+        let req = MockRequest {
+            method: "GET".to_string(),
+            path: "/api/test".to_string(),
+            path_params: HashMap::new(),
+            headers: HashMap::new(),
+            query: HashMap::new(),
+            body: "".to_string(),
+            json_body: None,
+        };
+        let result = find_best_match(&mocks, &req);
+        assert!(result.matched_mock.is_some());
+        assert_eq!(result.matched_mock.unwrap().id, "high");
+    }
+
+    #[test]
+    fn test_find_best_match_no_match() {
+        let mocks = vec![Mock {
+            id: "1".to_string(),
+            name: "Mock".to_string(),
+            method: "GET".to_string(),
+            path: "/api/other".to_string(),
+            mock_type: MockType::Static,
+            priority: 0,
+            response: None,
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        }];
+        let req = MockRequest {
+            method: "GET".to_string(),
+            path: "/api/test".to_string(),
+            path_params: HashMap::new(),
+            headers: HashMap::new(),
+            query: HashMap::new(),
+            body: "".to_string(),
+            json_body: None,
+        };
+        let result = find_best_match(&mocks, &req);
+        assert!(result.matched_mock.is_none());
+    }
+
+    #[test]
+    fn test_find_best_match_by_created_at() {
+        let mocks = vec![
+            Mock {
+                id: "older".to_string(),
+                name: "Older".to_string(),
+                method: "GET".to_string(),
+                path: "/api/test".to_string(),
+                mock_type: MockType::Static,
+                priority: 5,
+                response: None,
+                conditions: None,
+                else_response: None,
+                sequence: None,
+                sequence_mode: None,
+                script: None,
+                script_timeout_ms: None,
+                rest_id_field: None,
+                rest_initial_state: None,
+                state: None,
+                created_at: "2026-01-01T00:00:00.000Z".to_string(),
+                updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+            },
+            Mock {
+                id: "newer".to_string(),
+                name: "Newer".to_string(),
+                method: "GET".to_string(),
+                path: "/api/test".to_string(),
+                mock_type: MockType::Static,
+                priority: 5,
+                response: None,
+                conditions: None,
+                else_response: None,
+                sequence: None,
+                sequence_mode: None,
+                script: None,
+                script_timeout_ms: None,
+                rest_id_field: None,
+                rest_initial_state: None,
+                state: None,
+                created_at: "2026-02-01T00:00:00.000Z".to_string(),
+                updated_at: "2026-02-01T00:00:00.000Z".to_string(),
+            },
+        ];
+        let req = MockRequest {
+            method: "GET".to_string(),
+            path: "/api/test".to_string(),
+            path_params: HashMap::new(),
+            headers: HashMap::new(),
+            query: HashMap::new(),
+            body: "".to_string(),
+            json_body: None,
+        };
+        let result = find_best_match(&mocks, &req);
+        assert!(result.matched_mock.is_some());
+        assert_eq!(result.matched_mock.unwrap().id, "newer");
+    }
+
+    #[test]
+    fn test_find_best_match_returns_path_params() {
+        let mocks = vec![Mock {
+            id: "1".to_string(),
+            name: "Mock".to_string(),
+            method: "GET".to_string(),
+            path: "/users/:id".to_string(),
+            mock_type: MockType::Static,
+            priority: 0,
+            response: None,
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        }];
+        let req = MockRequest {
+            method: "GET".to_string(),
+            path: "/users/42".to_string(),
+            path_params: HashMap::new(),
+            headers: HashMap::new(),
+            query: HashMap::new(),
+            body: "".to_string(),
+            json_body: None,
+        };
+        let result = find_best_match(&mocks, &req);
+        assert!(result.matched_mock.is_some());
+        assert_eq!(result.path_params.get("id").unwrap(), "42");
+    }
+
+    #[test]
+    fn test_rest_custom_id_param() {
+        let res = match_path_pattern("/products/:productId", "/products/abc-123", true);
+        assert!(res.is_some());
+        assert_eq!(res.unwrap().get("productId").unwrap(), "abc-123");
+    }
+
+    #[test]
+    fn test_segments_match_exact_with_wildcard() {
+        let result = segments_match_exact(&["api", "*"], &["api", "anything"]);
+        assert!(result);
+    }
+
+    #[test]
+    fn test_segments_match_exact_mismatch() {
+        let result = segments_match_exact(&["api", "users"], &["api", "orders"]);
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_segments_match_exact_different_lengths() {
+        let result = segments_match_exact(&["api"], &["api", "users"]);
+        assert!(!result);
+    }
 }

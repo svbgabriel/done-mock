@@ -51,3 +51,55 @@ impl AppConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_app_config_default() {
+        let config = AppConfig::default();
+        assert_eq!(config.port, 8000);
+        assert_eq!(config.db_driver, "memory");
+        assert_eq!(
+            config.postgres_url,
+            "postgres://mock:mock@localhost:5432/mocks"
+        );
+        assert_eq!(config.script_timeout_ms, 2000);
+    }
+
+    #[test]
+    fn test_app_config_clone() {
+        let config = AppConfig::default();
+        let cloned = config.clone();
+        assert_eq!(cloned.port, config.port);
+        assert_eq!(cloned.db_driver, config.db_driver);
+        assert_eq!(cloned.postgres_url, config.postgres_url);
+        assert_eq!(cloned.script_timeout_ms, config.script_timeout_ms);
+    }
+
+    #[test]
+    fn test_app_config_serialization() {
+        let config = AppConfig::default();
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("\"port\":8000"));
+        assert!(json.contains("\"db_driver\":\"memory\""));
+    }
+
+    #[test]
+    fn test_app_config_deserialization() {
+        let json = r#"{"port": 3000, "db_driver": "postgres", "postgres_url": "postgres://u:p@h/d", "script_timeout_ms": 1000}"#;
+        let config: AppConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.port, 3000);
+        assert_eq!(config.db_driver, "postgres");
+        assert_eq!(config.script_timeout_ms, 1000);
+    }
+
+    #[test]
+    fn test_app_config_debug() {
+        let config = AppConfig::default();
+        let debug_str = format!("{:?}", config);
+        assert!(debug_str.contains("AppConfig"));
+        assert!(debug_str.contains("8000"));
+    }
+}
