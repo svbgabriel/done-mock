@@ -1,4 +1,4 @@
-use mock_server::{
+use done_mock::{
     config::AppConfig,
     error::MockServerError,
     live_feed::LiveFeed,
@@ -19,7 +19,7 @@ async fn main() -> Result<(), MockServerError> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "mock_server=debug,tower_http=debug".into()),
+                .unwrap_or_else(|_| "done_mock=debug,tower_http=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();

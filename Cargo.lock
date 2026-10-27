@@ -422,6 +422,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "done-mock"
+version = "2.0.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "chrono",
+ "dotenvy",
+ "futures-util",
+ "reqwest",
+ "rquickjs",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1198,29 +1221,6 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "mock-server"
-version = "2.0.0"
-dependencies = [
- "async-trait",
- "axum",
- "chrono",
- "dotenvy",
- "futures-util",
- "reqwest",
- "rquickjs",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "sqlx",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]

@@ -1,13 +1,13 @@
-# double-rust-mock
+# done-mock
 
-A customizable mock HTTP server built with Rust, Axum, and `deno_core` (V8). Inspired by [sMockin](https://github.com/matthewgallina/smockin).
+A customizable mock HTTP server built with Rust, Axum, and `rquickjs` (QuickJS). Inspired by [sMockin](https://github.com/matthewgallina/smockin).
 
 ## Features
 
 - **Static Mocks**: Fixed status, headers, and body.
 - **Conditional Mocks**: Branching logic based on headers, query params, or JSON body fields.
 - **Sequence Mocks**: Returns a sequence of responses across multiple calls (supports cycling or stopping at the end).
-- **Script Mocks**: Write custom logic in JS to compute the response, executed in a sandboxed V8 runtime via `deno_core`.
+- **Script Mocks**: Write custom logic in JS to compute the response, executed in a sandboxed QuickJS runtime via `rquickjs`.
 - **REST Mocks**: Stateful REST API simulation with persistent resource collections and CRUD support.
 - **Management UI**: Simple web interface at `/ui` to manage mocks.
 - **Persistence**: Mocks are stored in-memory (default) or PostgreSQL.
@@ -33,6 +33,7 @@ The server will start on port 8000 by default. Access the UI at `http://localhos
 - `DB_DRIVER`: `postgres` or `memory` (default).
 - `POSTGRES_URL`: PostgreSQL connection URL. Used only if `DB_DRIVER=postgres`.
 - `SCRIPT_TIMEOUT_MS`: Script execution timeout in milliseconds (default: 2000).
+- `POOL_MAX_CONNECTIONS`: Maximum number of PostgreSQL connections in the pool (default: 10).
 
 ### Docker
 
@@ -47,8 +48,8 @@ The server will be available at `http://localhost:8000`.
 To run without PostgreSQL (in-memory mode):
 
 ```bash
-docker build -t mock-server .
-docker run -p 8000:8000 -e DB_DRIVER=memory mock-server
+docker build -t done-mock .
+docker run -p 8000:8000 -e DB_DRIVER=memory done-mock
 ```
 
 ## Development
@@ -133,7 +134,7 @@ Returns responses in sequence on each call. With `sequenceMode: "cycle"`, the se
 
 ### Script Mock Example
 
-User scripts run in a sandboxed V8 runtime and receive a global `context` object representing the incoming request:
+User scripts run in a sandboxed QuickJS runtime and receive a global `context` object representing the incoming request:
 
 - `context.method`: Request HTTP method (e.g. `'GET'`, `'POST'`).
 - `context.path`: Request path (e.g. `'/users/42'`).

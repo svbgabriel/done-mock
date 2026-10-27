@@ -176,7 +176,7 @@ pub fn default_iso_now() -> String {
 /// # Example
 ///
 /// ```no_run
-/// use mock_server::model::{Mock, MockType, MockResponse};
+/// use done_mock::model::{Mock, MockType, MockResponse};
 ///
 /// let mock = Mock::builder()
 ///     .name("Test")

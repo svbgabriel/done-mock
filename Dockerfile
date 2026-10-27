@@ -24,8 +24,8 @@ RUN cargo build --release --locked
 FROM gcr.io/distroless/cc-debian13:nonroot
 
 WORKDIR /app
-COPY --chown=nonroot:nonroot --from=builder /app/target/release/mock-server ./mock-server
+COPY --chown=nonroot:nonroot --from=builder /app/target/release/done-mock ./done-mock
 COPY --chown=nonroot:nonroot --from=builder /app/ui ./ui
 
 EXPOSE 8000
-ENTRYPOINT ["./mock-server"]
+ENTRYPOINT ["./done-mock"]
