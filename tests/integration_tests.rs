@@ -61,31 +61,21 @@ async fn test_admin_api_and_static_mock_lifecycle() {
     let mut headers = HashMap::new();
     headers.insert("X-Custom-Header".to_string(), "test-value".to_string());
 
-    let mock = Mock {
-        id: "".to_string(),
-        name: "Static Ping Mock".to_string(),
-        method: "GET".to_string(),
-        path: "/api/ping".to_string(),
-        mock_type: MockType::Static,
-        priority: 1,
-        response: Some(MockResponse {
+    let mock = Mock::builder()
+        .id("")
+        .name("Static Ping Mock")
+        .method("GET")
+        .path("/api/ping")
+        .priority(1)
+        .response(MockResponse {
             status: 200,
             headers: Some(headers),
             body: Some(r#"{"pong": true}"#.to_string()),
             content_type: Some("application/json".to_string()),
-        }),
-        conditions: None,
-        else_response: None,
-        sequence: None,
-        sequence_mode: None,
-        script: None,
-        script_timeout_ms: None,
-        rest_id_field: None,
-        rest_initial_state: None,
-        state: None,
-        created_at: "".to_string(),
-        updated_at: "".to_string(),
-    };
+        })
+        .created_at("")
+        .updated_at("")
+        .build();
 
     let create_res = client
         .post(format!("{}/__admin/mocks", base_url))
@@ -185,31 +175,18 @@ async fn test_content_type_precedence() {
     let mut headers = HashMap::new();
     headers.insert("Content-Type".to_string(), "application/xml".to_string());
 
-    let mock1 = Mock {
-        id: "mock-ct-1".to_string(),
-        name: "CT 1".to_string(),
-        method: "GET".to_string(),
-        path: "/ct-test-1".to_string(),
-        mock_type: MockType::Static,
-        priority: 0,
-        response: Some(MockResponse {
+    let mock1 = Mock::builder()
+        .id("mock-ct-1")
+        .name("CT 1")
+        .method("GET")
+        .path("/ct-test-1")
+        .response(MockResponse {
             status: 200,
             headers: Some(headers),
             body: Some("<xml/>".to_string()),
             content_type: Some("application/json".to_string()),
-        }),
-        conditions: None,
-        else_response: None,
-        sequence: None,
-        sequence_mode: None,
-        script: None,
-        script_timeout_ms: None,
-        rest_id_field: None,
-        rest_initial_state: None,
-        state: None,
-        created_at: default_iso_now(),
-        updated_at: default_iso_now(),
-    };
+        })
+        .build();
     client
         .post(format!("{}/__admin/mocks", base_url))
         .json(&mock1)
@@ -228,31 +205,18 @@ async fn test_content_type_precedence() {
     );
 
     // 2. contentType field fallback
-    let mock2 = Mock {
-        id: "mock-ct-2".to_string(),
-        name: "CT 2".to_string(),
-        method: "GET".to_string(),
-        path: "/ct-test-2".to_string(),
-        mock_type: MockType::Static,
-        priority: 0,
-        response: Some(MockResponse {
+    let mock2 = Mock::builder()
+        .id("mock-ct-2")
+        .name("CT 2")
+        .method("GET")
+        .path("/ct-test-2")
+        .response(MockResponse {
             status: 200,
             headers: None,
             body: Some("{}".to_string()),
             content_type: Some("application/json".to_string()),
-        }),
-        conditions: None,
-        else_response: None,
-        sequence: None,
-        sequence_mode: None,
-        script: None,
-        script_timeout_ms: None,
-        rest_id_field: None,
-        rest_initial_state: None,
-        state: None,
-        created_at: default_iso_now(),
-        updated_at: default_iso_now(),
-    };
+        })
+        .build();
     client
         .post(format!("{}/__admin/mocks", base_url))
         .json(&mock2)
@@ -271,31 +235,18 @@ async fn test_content_type_precedence() {
     );
 
     // 3. Default text/plain
-    let mock3 = Mock {
-        id: "mock-ct-3".to_string(),
-        name: "CT 3".to_string(),
-        method: "GET".to_string(),
-        path: "/ct-test-3".to_string(),
-        mock_type: MockType::Static,
-        priority: 0,
-        response: Some(MockResponse {
+    let mock3 = Mock::builder()
+        .id("mock-ct-3")
+        .name("CT 3")
+        .method("GET")
+        .path("/ct-test-3")
+        .response(MockResponse {
             status: 200,
             headers: None,
             body: Some("hello".to_string()),
             content_type: None,
-        }),
-        conditions: None,
-        else_response: None,
-        sequence: None,
-        sequence_mode: None,
-        script: None,
-        script_timeout_ms: None,
-        rest_id_field: None,
-        rest_initial_state: None,
-        state: None,
-        created_at: default_iso_now(),
-        updated_at: default_iso_now(),
-    };
+        })
+        .build();
     client
         .post(format!("{}/__admin/mocks", base_url))
         .json(&mock3)
@@ -317,56 +268,36 @@ async fn test_matching_priority_and_url_pattern() {
     let client = Client::new();
 
     // Mock low priority
-    let mock_low = Mock {
-        id: "low-priority".to_string(),
-        name: "Low Priority".to_string(),
-        method: "GET".to_string(),
-        path: "/users/:id".to_string(),
-        mock_type: MockType::Static,
-        priority: 1,
-        response: Some(MockResponse {
+    let mock_low = Mock::builder()
+        .id("low-priority")
+        .name("Low Priority")
+        .method("GET")
+        .path("/users/:id")
+        .priority(1)
+        .response(MockResponse {
             status: 200,
             body: Some("low".to_string()),
             ..Default::default()
-        }),
-        conditions: None,
-        else_response: None,
-        sequence: None,
-        sequence_mode: None,
-        script: None,
-        script_timeout_ms: None,
-        rest_id_field: None,
-        rest_initial_state: None,
-        state: None,
-        created_at: "2026-01-01T00:00:00.000Z".to_string(),
-        updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-    };
+        })
+        .created_at("2026-01-01T00:00:00.000Z")
+        .updated_at("2026-01-01T00:00:00.000Z")
+        .build();
 
     // Mock high priority
-    let mock_high = Mock {
-        id: "high-priority".to_string(),
-        name: "High Priority".to_string(),
-        method: "GET".to_string(),
-        path: "/users/:id".to_string(),
-        mock_type: MockType::Static,
-        priority: 10,
-        response: Some(MockResponse {
+    let mock_high = Mock::builder()
+        .id("high-priority")
+        .name("High Priority")
+        .method("GET")
+        .path("/users/:id")
+        .priority(10)
+        .response(MockResponse {
             status: 200,
             body: Some("high".to_string()),
             ..Default::default()
-        }),
-        conditions: None,
-        else_response: None,
-        sequence: None,
-        sequence_mode: None,
-        script: None,
-        script_timeout_ms: None,
-        rest_id_field: None,
-        rest_initial_state: None,
-        state: None,
-        created_at: "2026-01-01T00:00:00.000Z".to_string(),
-        updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-    };
+        })
+        .created_at("2026-01-01T00:00:00.000Z")
+        .updated_at("2026-01-01T00:00:00.000Z")
+        .build();
 
     client
         .post(format!("{}/__admin/mocks", base_url))
@@ -395,15 +326,14 @@ async fn test_conditional_responder() {
     let base_url = spawn_test_server().await;
     let client = Client::new();
 
-    let cond_mock = Mock {
-        id: "cond-mock".to_string(),
-        name: "Conditional Route".to_string(),
-        method: "POST".to_string(),
-        path: "/auth/login".to_string(),
-        mock_type: MockType::Conditional,
-        priority: 5,
-        response: None,
-        conditions: Some(vec![
+    let cond_mock = Mock::builder()
+        .id("cond-mock")
+        .name("Conditional Route")
+        .method("POST")
+        .path("/auth/login")
+        .mock_type(MockType::Conditional)
+        .priority(5)
+        .conditions(vec![
             Condition {
                 source: ConditionSource::Header,
                 key: "X-Role".to_string(),
@@ -437,22 +367,13 @@ async fn test_conditional_responder() {
                     ..Default::default()
                 },
             },
-        ]),
-        else_response: Some(MockResponse {
+        ])
+        .else_response(MockResponse {
             status: 403,
             body: Some("Access Denied".to_string()),
             ..Default::default()
-        }),
-        sequence: None,
-        sequence_mode: None,
-        script: None,
-        script_timeout_ms: None,
-        rest_id_field: None,
-        rest_initial_state: None,
-        state: None,
-        created_at: default_iso_now(),
-        updated_at: default_iso_now(),
-    };
+        })
+        .build();
 
     client
         .post(format!("{}/__admin/mocks", base_url))
@@ -510,17 +431,13 @@ async fn test_sequence_responder_cycle_and_stop_at_end() {
     let client = Client::new();
 
     // 1. Cycle mode
-    let seq_cycle = Mock {
-        id: "seq-cycle".to_string(),
-        name: "Sequence Cycle".to_string(),
-        method: "GET".to_string(),
-        path: "/seq/cycle".to_string(),
-        mock_type: MockType::Sequence,
-        priority: 0,
-        response: None,
-        conditions: None,
-        else_response: None,
-        sequence: Some(vec![
+    let seq_cycle = Mock::builder()
+        .id("seq-cycle")
+        .name("Sequence Cycle")
+        .method("GET")
+        .path("/seq/cycle")
+        .mock_type(MockType::Sequence)
+        .sequence(vec![
             MockResponse {
                 status: 200,
                 body: Some("1".to_string()),
@@ -531,16 +448,9 @@ async fn test_sequence_responder_cycle_and_stop_at_end() {
                 body: Some("2".to_string()),
                 ..Default::default()
             },
-        ]),
-        sequence_mode: Some(SequenceMode::Cycle),
-        script: None,
-        script_timeout_ms: None,
-        rest_id_field: None,
-        rest_initial_state: None,
-        state: None,
-        created_at: default_iso_now(),
-        updated_at: default_iso_now(),
-    };
+        ])
+        .sequence_mode(SequenceMode::Cycle)
+        .build();
 
     client
         .post(format!("{}/__admin/mocks", base_url))
@@ -594,17 +504,13 @@ async fn test_sequence_responder_cycle_and_stop_at_end() {
     assert_eq!(r4, "1");
 
     // 2. StopAtEnd mode
-    let seq_stop = Mock {
-        id: "seq-stop".to_string(),
-        name: "Sequence Stop".to_string(),
-        method: "GET".to_string(),
-        path: "/seq/stop".to_string(),
-        mock_type: MockType::Sequence,
-        priority: 0,
-        response: None,
-        conditions: None,
-        else_response: None,
-        sequence: Some(vec![
+    let seq_stop = Mock::builder()
+        .id("seq-stop")
+        .name("Sequence Stop")
+        .method("GET")
+        .path("/seq/stop")
+        .mock_type(MockType::Sequence)
+        .sequence(vec![
             MockResponse {
                 status: 200,
                 body: Some("A".to_string()),
@@ -615,16 +521,9 @@ async fn test_sequence_responder_cycle_and_stop_at_end() {
                 body: Some("B".to_string()),
                 ..Default::default()
             },
-        ]),
-        sequence_mode: Some(SequenceMode::StopAtEnd),
-        script: None,
-        script_timeout_ms: None,
-        rest_id_field: None,
-        rest_initial_state: None,
-        state: None,
-        created_at: default_iso_now(),
-        updated_at: default_iso_now(),
-    };
+        ])
+        .sequence_mode(SequenceMode::StopAtEnd)
+        .build();
 
     client
         .post(format!("{}/__admin/mocks", base_url))
@@ -667,19 +566,13 @@ async fn test_script_responder() {
     let base_url = spawn_test_server().await;
     let client = Client::new();
 
-    let script_mock = Mock {
-        id: "script-1".to_string(),
-        name: "Script Mock".to_string(),
-        method: "POST".to_string(),
-        path: "/api/calculate/:operation".to_string(),
-        mock_type: MockType::Script,
-        priority: 0,
-        response: None,
-        conditions: None,
-        else_response: None,
-        sequence: None,
-        sequence_mode: None,
-        script: Some(
+    let script_mock = Mock::builder()
+        .id("script-1")
+        .name("Script Mock")
+        .method("POST")
+        .path("/api/calculate/:operation")
+        .mock_type(MockType::Script)
+        .script(
             r#"
             const op = context.pathParams.operation;
             const a = context.body.a;
@@ -692,16 +585,10 @@ async fn test_script_responder() {
                 headers: { "x-computed-by": "deno-script" },
                 body: { operation: op, result: result }
             };
-        "#
-            .to_string(),
-        ),
-        script_timeout_ms: Some(2000),
-        rest_id_field: None,
-        rest_initial_state: None,
-        state: None,
-        created_at: default_iso_now(),
-        updated_at: default_iso_now(),
-    };
+        "#,
+        )
+        .script_timeout_ms(2000)
+        .build();
 
     client
         .post(format!("{}/__admin/mocks", base_url))
@@ -740,26 +627,16 @@ async fn test_rest_mock_complete_crud_and_reset() {
         json!({ "id": "2", "name": "Item Two", "price": 20 }),
     ];
 
-    let rest_mock = Mock {
-        id: "rest-items".to_string(),
-        name: "Items REST API".to_string(),
-        method: "*".to_string(),
-        path: "/api/items/:id".to_string(),
-        mock_type: MockType::Rest,
-        priority: 10,
-        response: None,
-        conditions: None,
-        else_response: None,
-        sequence: None,
-        sequence_mode: None,
-        script: None,
-        script_timeout_ms: None,
-        rest_id_field: Some("id".to_string()),
-        rest_initial_state: Some(initial_items.clone()),
-        state: None,
-        created_at: default_iso_now(),
-        updated_at: default_iso_now(),
-    };
+    let rest_mock = Mock::builder()
+        .id("rest-items")
+        .name("Items REST API")
+        .method("*")
+        .path("/api/items/:id")
+        .mock_type(MockType::Rest)
+        .priority(10)
+        .rest_id_field("id")
+        .rest_initial_state(initial_items.clone())
+        .build();
 
     let create_res = client
         .post(format!("{}/__admin/mocks", base_url))
@@ -906,26 +783,15 @@ async fn test_rest_mock_custom_id_field() {
     let base_url = spawn_test_server().await;
     let client = Client::new();
 
-    let custom_rest = Mock {
-        id: "rest-sku".to_string(),
-        name: "Products by SKU".to_string(),
-        method: "*".to_string(),
-        path: "/products/:id".to_string(),
-        mock_type: MockType::Rest,
-        priority: 0,
-        response: None,
-        conditions: None,
-        else_response: None,
-        sequence: None,
-        sequence_mode: None,
-        script: None,
-        script_timeout_ms: None,
-        rest_id_field: Some("sku".to_string()),
-        rest_initial_state: Some(vec![json!({ "sku": "PROD-100", "title": "Keyboard" })]),
-        state: None,
-        created_at: default_iso_now(),
-        updated_at: default_iso_now(),
-    };
+    let custom_rest = Mock::builder()
+        .id("rest-sku")
+        .name("Products by SKU")
+        .method("*")
+        .path("/products/:id")
+        .mock_type(MockType::Rest)
+        .rest_id_field("sku")
+        .rest_initial_state(vec![json!({ "sku": "PROD-100", "title": "Keyboard" })])
+        .build();
 
     client
         .post(format!("{}/__admin/mocks", base_url))

@@ -338,26 +338,12 @@ mod tests {
 
     #[test]
     fn test_matches_mock_method_wildcard() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Wildcard".to_string(),
-            method: "*".to_string(),
-            path: "/api/test".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: None,
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("1")
+            .name("Wildcard")
+            .method("*")
+            .path("/api/test")
+            .build();
         let req = MockRequest {
             method: "DELETE".to_string(),
             path: "/api/test".to_string(),
@@ -372,26 +358,12 @@ mod tests {
 
     #[test]
     fn test_matches_mock_method_case_insensitive() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Get Mock".to_string(),
-            method: "GET".to_string(),
-            path: "/api/test".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: None,
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("1")
+            .name("Get Mock")
+            .method("GET")
+            .path("/api/test")
+            .build();
         let req = MockRequest {
             method: "get".to_string(),
             path: "/api/test".to_string(),
@@ -406,26 +378,12 @@ mod tests {
 
     #[test]
     fn test_matches_mock_method_mismatch() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Post Mock".to_string(),
-            method: "POST".to_string(),
-            path: "/api/test".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: None,
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("1")
+            .name("Post Mock")
+            .method("POST")
+            .path("/api/test")
+            .build();
         let req = MockRequest {
             method: "GET".to_string(),
             path: "/api/test".to_string(),
@@ -441,46 +399,20 @@ mod tests {
     #[test]
     fn test_find_best_match_by_priority() {
         let mocks = vec![
-            Mock {
-                id: "low".to_string(),
-                name: "Low Priority".to_string(),
-                method: "GET".to_string(),
-                path: "/api/test".to_string(),
-                mock_type: MockType::Static,
-                priority: 1,
-                response: None,
-                conditions: None,
-                else_response: None,
-                sequence: None,
-                sequence_mode: None,
-                script: None,
-                script_timeout_ms: None,
-                rest_id_field: None,
-                rest_initial_state: None,
-                state: None,
-                created_at: "2026-01-01T00:00:00.000Z".to_string(),
-                updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-            },
-            Mock {
-                id: "high".to_string(),
-                name: "High Priority".to_string(),
-                method: "GET".to_string(),
-                path: "/api/test".to_string(),
-                mock_type: MockType::Static,
-                priority: 10,
-                response: None,
-                conditions: None,
-                else_response: None,
-                sequence: None,
-                sequence_mode: None,
-                script: None,
-                script_timeout_ms: None,
-                rest_id_field: None,
-                rest_initial_state: None,
-                state: None,
-                created_at: "2026-01-01T00:00:00.000Z".to_string(),
-                updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-            },
+            Mock::builder()
+                .id("low")
+                .name("Low Priority")
+                .method("GET")
+                .path("/api/test")
+                .priority(1)
+                .build(),
+            Mock::builder()
+                .id("high")
+                .name("High Priority")
+                .method("GET")
+                .path("/api/test")
+                .priority(10)
+                .build(),
         ];
         let req = MockRequest {
             method: "GET".to_string(),
@@ -498,26 +430,12 @@ mod tests {
 
     #[test]
     fn test_find_best_match_no_match() {
-        let mocks = vec![Mock {
-            id: "1".to_string(),
-            name: "Mock".to_string(),
-            method: "GET".to_string(),
-            path: "/api/other".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: None,
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        }];
+        let mocks = vec![Mock::builder()
+            .id("1")
+            .name("Mock")
+            .method("GET")
+            .path("/api/other")
+            .build()];
         let req = MockRequest {
             method: "GET".to_string(),
             path: "/api/test".to_string(),
@@ -534,46 +452,24 @@ mod tests {
     #[test]
     fn test_find_best_match_by_created_at() {
         let mocks = vec![
-            Mock {
-                id: "older".to_string(),
-                name: "Older".to_string(),
-                method: "GET".to_string(),
-                path: "/api/test".to_string(),
-                mock_type: MockType::Static,
-                priority: 5,
-                response: None,
-                conditions: None,
-                else_response: None,
-                sequence: None,
-                sequence_mode: None,
-                script: None,
-                script_timeout_ms: None,
-                rest_id_field: None,
-                rest_initial_state: None,
-                state: None,
-                created_at: "2026-01-01T00:00:00.000Z".to_string(),
-                updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-            },
-            Mock {
-                id: "newer".to_string(),
-                name: "Newer".to_string(),
-                method: "GET".to_string(),
-                path: "/api/test".to_string(),
-                mock_type: MockType::Static,
-                priority: 5,
-                response: None,
-                conditions: None,
-                else_response: None,
-                sequence: None,
-                sequence_mode: None,
-                script: None,
-                script_timeout_ms: None,
-                rest_id_field: None,
-                rest_initial_state: None,
-                state: None,
-                created_at: "2026-02-01T00:00:00.000Z".to_string(),
-                updated_at: "2026-02-01T00:00:00.000Z".to_string(),
-            },
+            Mock::builder()
+                .id("older")
+                .name("Older")
+                .method("GET")
+                .path("/api/test")
+                .priority(5)
+                .created_at("2026-01-01T00:00:00.000Z")
+                .updated_at("2026-01-01T00:00:00.000Z")
+                .build(),
+            Mock::builder()
+                .id("newer")
+                .name("Newer")
+                .method("GET")
+                .path("/api/test")
+                .priority(5)
+                .created_at("2026-02-01T00:00:00.000Z")
+                .updated_at("2026-02-01T00:00:00.000Z")
+                .build(),
         ];
         let req = MockRequest {
             method: "GET".to_string(),
@@ -591,26 +487,12 @@ mod tests {
 
     #[test]
     fn test_find_best_match_returns_path_params() {
-        let mocks = vec![Mock {
-            id: "1".to_string(),
-            name: "Mock".to_string(),
-            method: "GET".to_string(),
-            path: "/users/:id".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: None,
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        }];
+        let mocks = vec![Mock::builder()
+            .id("1")
+            .name("Mock")
+            .method("GET")
+            .path("/users/:id")
+            .build()];
         let req = MockRequest {
             method: "GET".to_string(),
             path: "/users/42".to_string(),

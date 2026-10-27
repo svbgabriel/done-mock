@@ -168,7 +168,227 @@ pub fn default_iso_now() -> String {
     Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
 
+/// Builder pattern for fluent construction of `Mock`.
+///
+/// Allows building mocks in a cleaner way, especially in tests,
+/// automatically filling missing fields with default values.
+///
+/// # Example
+///
+/// ```no_run
+/// use mock_server::model::{Mock, MockType, MockResponse};
+///
+/// let mock = Mock::builder()
+///     .name("Test")
+///     .method("GET")
+///     .path("/test")
+///     .mock_type(MockType::Static)
+///     .response(MockResponse {
+///         status: 200,
+///         body: Some("ok".to_string()),
+///         ..Default::default()
+///     })
+///     .build();
+/// ```
+pub struct MockBuilder {
+    id: Option<String>,
+    name: Option<String>,
+    method: Option<String>,
+    path: Option<String>,
+    mock_type: Option<MockType>,
+    priority: Option<i32>,
+    response: Option<MockResponse>,
+    conditions: Option<Vec<Condition>>,
+    else_response: Option<MockResponse>,
+    sequence: Option<Vec<MockResponse>>,
+    sequence_mode: Option<SequenceMode>,
+    script: Option<String>,
+    script_timeout_ms: Option<u64>,
+    rest_id_field: Option<String>,
+    rest_initial_state: Option<Vec<serde_json::Value>>,
+    state: Option<Vec<serde_json::Value>>,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+}
+
+impl MockBuilder {
+    /// Creates an empty builder.
+    pub fn new() -> Self {
+        Self {
+            id: None,
+            name: None,
+            method: None,
+            path: None,
+            mock_type: None,
+            priority: None,
+            response: None,
+            conditions: None,
+            else_response: None,
+            sequence: None,
+            sequence_mode: None,
+            script: None,
+            script_timeout_ms: None,
+            rest_id_field: None,
+            rest_initial_state: None,
+            state: None,
+            created_at: None,
+            updated_at: None,
+        }
+    }
+
+    /// Sets the mock's ID. If not provided, a UUID v4 is generated automatically.
+    pub fn id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
+    }
+
+    /// Sets the mock's name.
+    pub fn name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    /// Sets the mock's HTTP method.
+    pub fn method(mut self, method: impl Into<String>) -> Self {
+        self.method = Some(method.into());
+        self
+    }
+
+    /// Sets the mock's path.
+    pub fn path(mut self, path: impl Into<String>) -> Self {
+        self.path = Some(path.into());
+        self
+    }
+
+    /// Sets the mock's type (Static, Conditional, Sequence, Script, Rest).
+    pub fn mock_type(mut self, mock_type: MockType) -> Self {
+        self.mock_type = Some(mock_type);
+        self
+    }
+
+    /// Sets the mock's priority.
+    pub fn priority(mut self, priority: i32) -> Self {
+        self.priority = Some(priority);
+        self
+    }
+
+    /// Sets the mock's static response.
+    pub fn response(mut self, response: MockResponse) -> Self {
+        self.response = Some(response);
+        self
+    }
+
+    /// Sets the mock's conditions.
+    pub fn conditions(mut self, conditions: Vec<Condition>) -> Self {
+        self.conditions = Some(conditions);
+        self
+    }
+
+    /// Sets the conditional mock's default (else) response.
+    pub fn else_response(mut self, else_response: MockResponse) -> Self {
+        self.else_response = Some(else_response);
+        self
+    }
+
+    /// Sets the mock's sequence of responses.
+    pub fn sequence(mut self, sequence: Vec<MockResponse>) -> Self {
+        self.sequence = Some(sequence);
+        self
+    }
+
+    /// Sets the sequence mode (Cycle, StopAtEnd).
+    pub fn sequence_mode(mut self, sequence_mode: SequenceMode) -> Self {
+        self.sequence_mode = Some(sequence_mode);
+        self
+    }
+
+    /// Sets the mock's JavaScript script.
+    pub fn script(mut self, script: impl Into<String>) -> Self {
+        self.script = Some(script.into());
+        self
+    }
+
+    /// Sets the script timeout in milliseconds.
+    pub fn script_timeout_ms(mut self, script_timeout_ms: u64) -> Self {
+        self.script_timeout_ms = Some(script_timeout_ms);
+        self
+    }
+
+    /// Sets the ID field for REST mocks.
+    pub fn rest_id_field(mut self, rest_id_field: impl Into<String>) -> Self {
+        self.rest_id_field = Some(rest_id_field.into());
+        self
+    }
+
+    /// Sets the initial state for REST mocks.
+    pub fn rest_initial_state(mut self, rest_initial_state: Vec<serde_json::Value>) -> Self {
+        self.rest_initial_state = Some(rest_initial_state);
+        self
+    }
+
+    /// Sets the current state for REST mocks.
+    pub fn state(mut self, state: Vec<serde_json::Value>) -> Self {
+        self.state = Some(state);
+        self
+    }
+
+    /// Sets the creation timestamp. If not provided, uses the current time.
+    pub fn created_at(mut self, created_at: impl Into<String>) -> Self {
+        self.created_at = Some(created_at.into());
+        self
+    }
+
+    /// Sets the update timestamp. If not provided, uses the current time.
+    pub fn updated_at(mut self, updated_at: impl Into<String>) -> Self {
+        self.updated_at = Some(updated_at.into());
+        self
+    }
+
+    /// Builds the `Mock` from the configured values.
+    ///
+    /// Required fields (name, method, path, mock_type) should be set
+    /// before calling `build()`. Missing fields receive default values:
+    /// - `id`: Auto-generated UUID v4
+    /// - `priority`: 0
+    /// - `created_at`/`updated_at`: Current timestamp
+    /// - Optional fields: `None`
+    pub fn build(self) -> Mock {
+        let now = default_iso_now();
+        Mock {
+            id: self.id.unwrap_or_else(default_uuid),
+            name: self.name.unwrap_or_default(),
+            method: self.method.unwrap_or_default(),
+            path: self.path.unwrap_or_default(),
+            mock_type: self.mock_type.unwrap_or(MockType::Static),
+            priority: self.priority.unwrap_or(0),
+            response: self.response,
+            conditions: self.conditions,
+            else_response: self.else_response,
+            sequence: self.sequence,
+            sequence_mode: self.sequence_mode,
+            script: self.script,
+            script_timeout_ms: self.script_timeout_ms,
+            rest_id_field: self.rest_id_field,
+            rest_initial_state: self.rest_initial_state,
+            state: self.state,
+            created_at: self.created_at.unwrap_or_else(|| now.clone()),
+            updated_at: self.updated_at.unwrap_or(now),
+        }
+    }
+}
+
+impl Default for MockBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Mock {
+    /// Returns a `MockBuilder` for fluent construction.
+    pub fn builder() -> MockBuilder {
+        MockBuilder::new()
+    }
+
     /// Applies the fields present in `PartialMock` to this `Mock`,
     /// updating the `updated_at` timestamp.
     pub fn apply_partial(&mut self, partial: PartialMock) {
@@ -402,92 +622,91 @@ mod tests {
 
     // --- Mock serialization tests ---
 
+    // --- MockBuilder tests ---
+
     #[test]
-    fn test_mock_serialization_static() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Test".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Static,
-            priority: 5,
-            response: Some(MockResponse {
+    fn test_builder_static_mock() {
+        let mock = Mock::builder()
+            .id("1")
+            .name("Test")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Static)
+            .priority(5)
+            .response(MockResponse {
                 status: 200,
                 headers: None,
                 body: Some("ok".to_string()),
                 content_type: None,
-            }),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
-        let json = serde_json::to_string(&mock).unwrap();
-        assert!(json.contains("\"type\":\"static\""));
-        assert!(json.contains("\"name\":\"Test\""));
-        assert!(json.contains("\"method\":\"GET\""));
-        assert!(json.contains("\"path\":\"/test\""));
-        assert!(json.contains("\"priority\":5"));
+            })
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
+
+        assert_eq!(mock.id, "1");
+        assert_eq!(mock.name, "Test");
+        assert_eq!(mock.method, "GET");
+        assert_eq!(mock.path, "/test");
+        assert_eq!(mock.mock_type, MockType::Static);
+        assert_eq!(mock.priority, 5);
+        assert!(mock.response.is_some());
+        assert!(mock.conditions.is_none());
+        assert!(mock.sequence.is_none());
     }
 
     #[test]
-    fn test_mock_serialization_conditional() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Conditional".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Conditional,
-            priority: 0,
-            response: None,
-            conditions: Some(vec![Condition {
+    fn test_builder_generates_defaults() {
+        let mock = Mock::builder()
+            .name("Minimal")
+            .method("POST")
+            .path("/api")
+            .build();
+
+        assert!(!mock.id.is_empty());
+        assert_eq!(mock.name, "Minimal");
+        assert_eq!(mock.method, "POST");
+        assert_eq!(mock.path, "/api");
+        assert_eq!(mock.mock_type, MockType::Static);
+        assert_eq!(mock.priority, 0);
+        assert!(mock.created_at.len() > 0);
+        assert!(mock.updated_at.len() > 0);
+    }
+
+    #[test]
+    fn test_builder_conditional_mock() {
+        let mock = Mock::builder()
+            .name("Conditional")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Conditional)
+            .conditions(vec![Condition {
                 source: ConditionSource::Header,
                 key: "X-V".to_string(),
                 op: ConditionOp::Equals,
                 value: Some("1".to_string()),
                 response: MockResponse::default(),
-            }]),
-            else_response: Some(MockResponse {
+            }])
+            .else_response(MockResponse {
                 status: 404,
                 headers: None,
                 body: None,
                 content_type: None,
-            }),
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
-        let json = serde_json::to_string(&mock).unwrap();
-        assert!(json.contains("\"type\":\"conditional\""));
-        assert!(json.contains("\"elseResponse\""));
+            })
+            .build();
+
+        assert_eq!(mock.mock_type, MockType::Conditional);
+        assert!(mock.conditions.is_some());
+        assert!(mock.else_response.is_some());
     }
 
     #[test]
-    fn test_mock_serialization_sequence() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Sequence".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Sequence,
-            priority: 0,
-            response: None,
-            conditions: None,
-            else_response: None,
-            sequence: Some(vec![
+    fn test_builder_sequence_mock() {
+        let mock = Mock::builder()
+            .name("Sequence")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Sequence)
+            .sequence(vec![
                 MockResponse {
                     status: 200,
                     headers: None,
@@ -500,16 +719,141 @@ mod tests {
                     body: Some("second".to_string()),
                     content_type: None,
                 },
-            ]),
-            sequence_mode: Some(SequenceMode::StopAtEnd),
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+            ])
+            .sequence_mode(SequenceMode::StopAtEnd)
+            .build();
+
+        assert_eq!(mock.mock_type, MockType::Sequence);
+        assert!(mock.sequence.is_some());
+        assert_eq!(mock.sequence_mode, Some(SequenceMode::StopAtEnd));
+    }
+
+    #[test]
+    fn test_builder_script_mock() {
+        let mock = Mock::builder()
+            .name("Script")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Script)
+            .script("return { status: 200 }")
+            .script_timeout_ms(5000)
+            .build();
+
+        assert_eq!(mock.mock_type, MockType::Script);
+        assert_eq!(mock.script, Some("return { status: 200 }".to_string()));
+        assert_eq!(mock.script_timeout_ms, Some(5000));
+    }
+
+    #[test]
+    fn test_builder_rest_mock() {
+        let mock = Mock::builder()
+            .name("REST")
+            .method("GET")
+            .path("/items")
+            .mock_type(MockType::Rest)
+            .rest_id_field("itemId")
+            .rest_initial_state(vec![serde_json::json!({"id": "1", "name": "Item"})])
+            .build();
+
+        assert_eq!(mock.mock_type, MockType::Rest);
+        assert_eq!(mock.rest_id_field, Some("itemId".to_string()));
+        assert!(mock.rest_initial_state.is_some());
+    }
+
+    #[test]
+    fn test_builder_new() {
+        let builder = MockBuilder::new();
+        let mock = builder
+            .name("From new()")
+            .method("GET")
+            .path("/test")
+            .build();
+        assert_eq!(mock.name, "From new()");
+    }
+
+    // --- Mock serialization tests ---
+
+    #[test]
+    fn test_mock_serialization_static() {
+        let mock = Mock::builder()
+            .id("1")
+            .name("Test")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Static)
+            .priority(5)
+            .response(MockResponse {
+                status: 200,
+                headers: None,
+                body: Some("ok".to_string()),
+                content_type: None,
+            })
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
+        let json = serde_json::to_string(&mock).unwrap();
+        assert!(json.contains("\"type\":\"static\""));
+        assert!(json.contains("\"name\":\"Test\""));
+        assert!(json.contains("\"method\":\"GET\""));
+        assert!(json.contains("\"path\":\"/test\""));
+        assert!(json.contains("\"priority\":5"));
+    }
+
+    #[test]
+    fn test_mock_serialization_conditional() {
+        let mock = Mock::builder()
+            .id("1")
+            .name("Conditional")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Conditional)
+            .conditions(vec![Condition {
+                source: ConditionSource::Header,
+                key: "X-V".to_string(),
+                op: ConditionOp::Equals,
+                value: Some("1".to_string()),
+                response: MockResponse::default(),
+            }])
+            .else_response(MockResponse {
+                status: 404,
+                headers: None,
+                body: None,
+                content_type: None,
+            })
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
+        let json = serde_json::to_string(&mock).unwrap();
+        assert!(json.contains("\"type\":\"conditional\""));
+        assert!(json.contains("\"elseResponse\""));
+    }
+
+    #[test]
+    fn test_mock_serialization_sequence() {
+        let mock = Mock::builder()
+            .id("1")
+            .name("Sequence")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Sequence)
+            .sequence(vec![
+                MockResponse {
+                    status: 200,
+                    headers: None,
+                    body: Some("first".to_string()),
+                    content_type: None,
+                },
+                MockResponse {
+                    status: 201,
+                    headers: None,
+                    body: Some("second".to_string()),
+                    content_type: None,
+                },
+            ])
+            .sequence_mode(SequenceMode::StopAtEnd)
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
         let json = serde_json::to_string(&mock).unwrap();
         assert!(json.contains("\"type\":\"sequence\""));
         assert!(json.contains("\"sequenceMode\":\"stopAtEnd\""));
@@ -517,26 +861,17 @@ mod tests {
 
     #[test]
     fn test_mock_serialization_script() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Script".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Script,
-            priority: 0,
-            response: None,
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: Some("return { status: 200 }".to_string()),
-            script_timeout_ms: Some(5000),
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("1")
+            .name("Script")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Script)
+            .script("return { status: 200 }")
+            .script_timeout_ms(5000)
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
         let json = serde_json::to_string(&mock).unwrap();
         assert!(json.contains("\"type\":\"script\""));
         assert!(json.contains("\"scriptTimeoutMs\":5000"));
@@ -544,26 +879,17 @@ mod tests {
 
     #[test]
     fn test_mock_serialization_rest() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "REST".to_string(),
-            method: "GET".to_string(),
-            path: "/items".to_string(),
-            mock_type: MockType::Rest,
-            priority: 0,
-            response: None,
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: Some("itemId".to_string()),
-            rest_initial_state: Some(vec![serde_json::json!({"id": "1", "name": "Item"})]),
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("1")
+            .name("REST")
+            .method("GET")
+            .path("/items")
+            .mock_type(MockType::Rest)
+            .rest_id_field("itemId")
+            .rest_initial_state(vec![serde_json::json!({"id": "1", "name": "Item"})])
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
         let json = serde_json::to_string(&mock).unwrap();
         assert!(json.contains("\"type\":\"rest\""));
         assert!(json.contains("\"restIdField\":\"itemId\""));

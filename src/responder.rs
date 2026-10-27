@@ -669,57 +669,30 @@ mod tests {
 
     #[test]
     fn test_handle_static_mock() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Static".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: Some(MockResponse {
+        let mock = Mock::builder()
+            .id("1")
+            .name("Static")
+            .method("GET")
+            .path("/test")
+            .response(MockResponse {
                 status: 200,
                 headers: None,
                 body: Some("Hello".to_string()),
                 content_type: None,
-            }),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+            })
+            .build();
         let resp = handle_static_mock(&mock);
         assert_eq!(resp.status(), StatusCode::OK);
     }
 
     #[test]
     fn test_handle_static_mock_no_response() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Static".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: None,
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("1")
+            .name("Static")
+            .method("GET")
+            .path("/test")
+            .build();
         let resp = handle_static_mock(&mock);
         assert_eq!(resp.status(), StatusCode::OK);
     }
@@ -728,15 +701,13 @@ mod tests {
 
     #[test]
     fn test_handle_conditional_mock_header_equals() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Conditional".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Conditional,
-            priority: 0,
-            response: None,
-            conditions: Some(vec![Condition {
+        let mock = Mock::builder()
+            .id("1")
+            .name("Conditional")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Conditional)
+            .conditions(vec![Condition {
                 source: ConditionSource::Header,
                 key: "X-Version".to_string(),
                 op: ConditionOp::Equals,
@@ -747,23 +718,14 @@ mod tests {
                     body: Some("v2".to_string()),
                     content_type: None,
                 },
-            }]),
-            else_response: Some(MockResponse {
+            }])
+            .else_response(MockResponse {
                 status: 404,
                 headers: None,
                 body: Some("not found".to_string()),
                 content_type: None,
-            }),
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+            })
+            .build();
 
         let mut headers = HashMap::new();
         headers.insert("X-Version".to_string(), "2".to_string());
@@ -783,15 +745,13 @@ mod tests {
 
     #[test]
     fn test_handle_conditional_mock_header_not_equals() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Conditional".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Conditional,
-            priority: 0,
-            response: None,
-            conditions: Some(vec![Condition {
+        let mock = Mock::builder()
+            .id("1")
+            .name("Conditional")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Conditional)
+            .conditions(vec![Condition {
                 source: ConditionSource::Header,
                 key: "X-Version".to_string(),
                 op: ConditionOp::NotEquals,
@@ -802,23 +762,14 @@ mod tests {
                     body: Some("not v1".to_string()),
                     content_type: None,
                 },
-            }]),
-            else_response: Some(MockResponse {
+            }])
+            .else_response(MockResponse {
                 status: 403,
                 headers: None,
                 body: Some("forbidden".to_string()),
                 content_type: None,
-            }),
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+            })
+            .build();
 
         let mut headers = HashMap::new();
         headers.insert("X-Version".to_string(), "2".to_string());
@@ -838,15 +789,13 @@ mod tests {
 
     #[test]
     fn test_handle_conditional_mock_query_exists() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Conditional".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Conditional,
-            priority: 0,
-            response: None,
-            conditions: Some(vec![Condition {
+        let mock = Mock::builder()
+            .id("1")
+            .name("Conditional")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Conditional)
+            .conditions(vec![Condition {
                 source: ConditionSource::Query,
                 key: "debug".to_string(),
                 op: ConditionOp::Exists,
@@ -857,23 +806,14 @@ mod tests {
                     body: Some("debug mode".to_string()),
                     content_type: None,
                 },
-            }]),
-            else_response: Some(MockResponse {
+            }])
+            .else_response(MockResponse {
                 status: 200,
                 headers: None,
                 body: Some("normal".to_string()),
                 content_type: None,
-            }),
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+            })
+            .build();
 
         let mut query = HashMap::new();
         query.insert("debug".to_string(), "true".to_string());
@@ -893,15 +833,13 @@ mod tests {
 
     #[test]
     fn test_handle_conditional_mock_query_not_exists() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Conditional".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Conditional,
-            priority: 0,
-            response: None,
-            conditions: Some(vec![Condition {
+        let mock = Mock::builder()
+            .id("1")
+            .name("Conditional")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Conditional)
+            .conditions(vec![Condition {
                 source: ConditionSource::Query,
                 key: "admin".to_string(),
                 op: ConditionOp::NotExists,
@@ -912,23 +850,14 @@ mod tests {
                     body: Some("public".to_string()),
                     content_type: None,
                 },
-            }]),
-            else_response: Some(MockResponse {
+            }])
+            .else_response(MockResponse {
                 status: 403,
                 headers: None,
                 body: Some("admin only".to_string()),
                 content_type: None,
-            }),
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+            })
+            .build();
 
         let req = MockRequest {
             method: "GET".to_string(),
@@ -946,15 +875,13 @@ mod tests {
 
     #[test]
     fn test_handle_conditional_mock_no_match_no_else() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Conditional".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Conditional,
-            priority: 0,
-            response: None,
-            conditions: Some(vec![Condition {
+        let mock = Mock::builder()
+            .id("1")
+            .name("Conditional")
+            .method("GET")
+            .path("/test")
+            .mock_type(MockType::Conditional)
+            .conditions(vec![Condition {
                 source: ConditionSource::Header,
                 key: "X-Missing".to_string(),
                 op: ConditionOp::Exists,
@@ -965,18 +892,8 @@ mod tests {
                     body: Some("matched".to_string()),
                     content_type: None,
                 },
-            }]),
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+            }])
+            .build();
 
         let req = MockRequest {
             method: "GET".to_string(),
@@ -994,15 +911,13 @@ mod tests {
 
     #[test]
     fn test_handle_conditional_mock_body_equals() {
-        let mock = Mock {
-            id: "1".to_string(),
-            name: "Conditional".to_string(),
-            method: "POST".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Conditional,
-            priority: 0,
-            response: None,
-            conditions: Some(vec![Condition {
+        let mock = Mock::builder()
+            .id("1")
+            .name("Conditional")
+            .method("POST")
+            .path("/test")
+            .mock_type(MockType::Conditional)
+            .conditions(vec![Condition {
                 source: ConditionSource::Body,
                 key: "action".to_string(),
                 op: ConditionOp::Equals,
@@ -1013,23 +928,14 @@ mod tests {
                     body: Some("deleted".to_string()),
                     content_type: None,
                 },
-            }]),
-            else_response: Some(MockResponse {
+            }])
+            .else_response(MockResponse {
                 status: 200,
                 headers: None,
                 body: Some("other".to_string()),
                 content_type: None,
-            }),
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+            })
+            .build();
 
         let req = MockRequest {
             method: "POST".to_string(),

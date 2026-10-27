@@ -104,47 +104,27 @@ mod tests {
     async fn test_in_memory_store_crud_and_sorting() {
         let store = InMemoryMockStore::new();
 
-        let mock_a = Mock {
-            id: "m-1".to_string(),
-            name: "Mock A".to_string(),
-            method: "GET".to_string(),
-            path: "/a".to_string(),
-            mock_type: MockType::Static,
-            priority: 10,
-            response: Some(MockResponse::default()),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock_a = Mock::builder()
+            .id("m-1")
+            .name("Mock A")
+            .method("GET")
+            .path("/a")
+            .priority(10)
+            .response(MockResponse::default())
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
 
-        let mock_b = Mock {
-            id: "m-2".to_string(),
-            name: "Mock B".to_string(),
-            method: "GET".to_string(),
-            path: "/b".to_string(),
-            mock_type: MockType::Static,
-            priority: 20,
-            response: Some(MockResponse::default()),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock_b = Mock::builder()
+            .id("m-2")
+            .name("Mock B")
+            .method("GET")
+            .path("/b")
+            .priority(20)
+            .response(MockResponse::default())
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
 
         store.create(mock_a).await.unwrap();
         store.create(mock_b).await.unwrap();
@@ -194,26 +174,15 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_store_get_existing() {
         let store = InMemoryMockStore::new();
-        let mock = Mock {
-            id: "m-1".to_string(),
-            name: "Test".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: Some(MockResponse::default()),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("m-1")
+            .name("Test")
+            .method("GET")
+            .path("/test")
+            .response(MockResponse::default())
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
         store.create(mock).await.unwrap();
         let found = store.get("m-1").await.unwrap();
         assert!(found.is_some());
@@ -230,26 +199,15 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_store_create_generates_id() {
         let store = InMemoryMockStore::new();
-        let mock = Mock {
-            id: "".to_string(),
-            name: "Auto ID".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: Some(MockResponse::default()),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "".to_string(),
-            updated_at: "".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("")
+            .name("Auto ID")
+            .method("GET")
+            .path("/test")
+            .response(MockResponse::default())
+            .created_at("")
+            .updated_at("")
+            .build();
         let created = store.create(mock).await.unwrap();
         assert!(!created.id.is_empty());
         assert!(!created.created_at.is_empty());
@@ -259,26 +217,15 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_store_create_preserves_id() {
         let store = InMemoryMockStore::new();
-        let mock = Mock {
-            id: "custom-id".to_string(),
-            name: "Custom ID".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: Some(MockResponse::default()),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "".to_string(),
-            updated_at: "".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("custom-id")
+            .name("Custom ID")
+            .method("GET")
+            .path("/test")
+            .response(MockResponse::default())
+            .created_at("")
+            .updated_at("")
+            .build();
         let created = store.create(mock).await.unwrap();
         assert_eq!(created.id, "custom-id");
     }
@@ -286,29 +233,20 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_store_create_rest_initializes_state() {
         let store = InMemoryMockStore::new();
-        let mock = Mock {
-            id: "rest-1".to_string(),
-            name: "REST Mock".to_string(),
-            method: "GET".to_string(),
-            path: "/items".to_string(),
-            mock_type: MockType::Rest,
-            priority: 0,
-            response: None,
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: Some("id".to_string()),
-            rest_initial_state: Some(vec![
+        let mock = Mock::builder()
+            .id("rest-1")
+            .name("REST Mock")
+            .method("GET")
+            .path("/items")
+            .mock_type(MockType::Rest)
+            .rest_id_field("id")
+            .rest_initial_state(vec![
                 serde_json::json!({"id": "1", "name": "Item 1"}),
                 serde_json::json!({"id": "2", "name": "Item 2"}),
-            ]),
-            state: None,
-            created_at: "".to_string(),
-            updated_at: "".to_string(),
-        };
+            ])
+            .created_at("")
+            .updated_at("")
+            .build();
         let created = store.create(mock).await.unwrap();
         assert!(created.state.is_some());
         let state = created.state.unwrap();
@@ -333,26 +271,15 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_store_update_name() {
         let store = InMemoryMockStore::new();
-        let mock = Mock {
-            id: "m-1".to_string(),
-            name: "Original".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: Some(MockResponse::default()),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("m-1")
+            .name("Original")
+            .method("GET")
+            .path("/test")
+            .response(MockResponse::default())
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
         store.create(mock).await.unwrap();
 
         let updated = store
@@ -371,26 +298,15 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_store_update_method_and_path() {
         let store = InMemoryMockStore::new();
-        let mock = Mock {
-            id: "m-1".to_string(),
-            name: "Test".to_string(),
-            method: "GET".to_string(),
-            path: "/old".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: Some(MockResponse::default()),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("m-1")
+            .name("Test")
+            .method("GET")
+            .path("/old")
+            .response(MockResponse::default())
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
         store.create(mock).await.unwrap();
 
         let updated = store
@@ -418,26 +334,16 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_store_update_state() {
         let store = InMemoryMockStore::new();
-        let mock = Mock {
-            id: "m-1".to_string(),
-            name: "REST".to_string(),
-            method: "GET".to_string(),
-            path: "/items".to_string(),
-            mock_type: MockType::Rest,
-            priority: 0,
-            response: None,
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: Some(vec![serde_json::json!({"id": "1"})]),
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("m-1")
+            .name("REST")
+            .method("GET")
+            .path("/items")
+            .mock_type(MockType::Rest)
+            .state(vec![serde_json::json!({"id": "1"})])
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
         store.create(mock).await.unwrap();
 
         let new_state = serde_json::json!([
@@ -463,26 +369,15 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_store_clone() {
         let store = InMemoryMockStore::new();
-        let mock = Mock {
-            id: "m-1".to_string(),
-            name: "Test".to_string(),
-            method: "GET".to_string(),
-            path: "/test".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: Some(MockResponse::default()),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("m-1")
+            .name("Test")
+            .method("GET")
+            .path("/test")
+            .response(MockResponse::default())
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
         store.create(mock).await.unwrap();
 
         let store2 = store.clone();
@@ -500,26 +395,15 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_store_update_all_fields() {
         let store = InMemoryMockStore::new();
-        let mock = Mock {
-            id: "m-1".to_string(),
-            name: "Original".to_string(),
-            method: "GET".to_string(),
-            path: "/old".to_string(),
-            mock_type: MockType::Static,
-            priority: 0,
-            response: Some(MockResponse::default()),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock = Mock::builder()
+            .id("m-1")
+            .name("Original")
+            .method("GET")
+            .path("/old")
+            .response(MockResponse::default())
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
         store.create(mock).await.unwrap();
 
         let updated = store
@@ -564,47 +448,27 @@ mod tests {
         let store = InMemoryMockStore::new();
 
         // Same priority, different created_at
-        let mock_older = Mock {
-            id: "older".to_string(),
-            name: "Older".to_string(),
-            method: "GET".to_string(),
-            path: "/a".to_string(),
-            mock_type: MockType::Static,
-            priority: 5,
-            response: Some(MockResponse::default()),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-01-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
-        };
+        let mock_older = Mock::builder()
+            .id("older")
+            .name("Older")
+            .method("GET")
+            .path("/a")
+            .priority(5)
+            .response(MockResponse::default())
+            .created_at("2026-01-01T00:00:00.000Z")
+            .updated_at("2026-01-01T00:00:00.000Z")
+            .build();
 
-        let mock_newer = Mock {
-            id: "newer".to_string(),
-            name: "Newer".to_string(),
-            method: "GET".to_string(),
-            path: "/b".to_string(),
-            mock_type: MockType::Static,
-            priority: 5,
-            response: Some(MockResponse::default()),
-            conditions: None,
-            else_response: None,
-            sequence: None,
-            sequence_mode: None,
-            script: None,
-            script_timeout_ms: None,
-            rest_id_field: None,
-            rest_initial_state: None,
-            state: None,
-            created_at: "2026-02-01T00:00:00.000Z".to_string(),
-            updated_at: "2026-02-01T00:00:00.000Z".to_string(),
-        };
+        let mock_newer = Mock::builder()
+            .id("newer")
+            .name("Newer")
+            .method("GET")
+            .path("/b")
+            .priority(5)
+            .response(MockResponse::default())
+            .created_at("2026-02-01T00:00:00.000Z")
+            .updated_at("2026-02-01T00:00:00.000Z")
+            .build();
 
         store.create(mock_older).await.unwrap();
         store.create(mock_newer).await.unwrap();
