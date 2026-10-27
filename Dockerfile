@@ -20,12 +20,18 @@ COPY ui/ ./ui/
 # Rebuild with source code (only recompiles changed crates)
 RUN cargo build --release --locked
 
+# Healthcheck stage - static wget from busybox
+FROM busybox:uclibc AS healthcheck
+
 # Production stage - minimal distroless image
 FROM gcr.io/distroless/cc-debian13:nonroot
 
 WORKDIR /app
 COPY --chown=nonroot:nonroot --from=builder /app/target/release/done-mock ./done-mock
 COPY --chown=nonroot:nonroot --from=builder /app/ui ./ui
+COPY --chown=nonroot:nonroot --from=healthcheck /usr/bin/wget /usr/bin/wget
 
 EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["wget", "--spider", "-q", "http://localhost:8000/__admin/health"]
 ENTRYPOINT ["./done-mock"]
