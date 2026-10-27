@@ -1,3 +1,4 @@
+use crate::error::MockServerError;
 use crate::mock_server::MockServerState;
 use crate::model::{Mock, MockType, PartialMock};
 use axum::{
@@ -31,15 +32,19 @@ async fn health_check() -> impl IntoResponse {
     Json(json!({ "status": "ok" }))
 }
 
+fn store_error_response(err: MockServerError) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        err.status_code(),
+        Json(json!({ "error": err.error_type(), "message": err.to_string() })),
+    )
+}
+
 async fn list_mocks(State(state): State<MockServerState>) -> impl IntoResponse {
-    match state.store.list().await {
-        Ok(mocks) => (StatusCode::OK, Json(json!(mocks))).into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": "Internal Server Error", "message": err.to_string() })),
-        )
-            .into_response(),
-    }
+    let result = match state.store.list().await {
+        Ok(mocks) => (StatusCode::OK, Json(json!(mocks))),
+        Err(err) => store_error_response(err),
+    };
+    result.into_response()
 }
 
 fn validate_mock(mock: &Mock) -> Result<(), &'static str> {
@@ -100,36 +105,31 @@ async fn create_mock(
             .into_response();
     }
 
-    match state.store.create(mock).await {
+    let result = match state.store.create(mock).await {
         Ok(created) => {
             state.refresh_cache().await;
-            (StatusCode::CREATED, Json(json!(created))).into_response()
+            (StatusCode::CREATED, Json(json!(created)))
         }
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": "Internal Server Error", "message": err.to_string() })),
-        )
-            .into_response(),
-    }
+        Err(err) => store_error_response(err),
+    };
+    result.into_response()
 }
 
 async fn get_mock(
     State(state): State<MockServerState>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    match state.store.get(&id).await {
-        Ok(Some(mock)) => (StatusCode::OK, Json(json!(mock))).into_response(),
+    let result = match state.store.get(&id).await {
+        Ok(Some(mock)) => (StatusCode::OK, Json(json!(mock))),
         Ok(None) => (
             StatusCode::NOT_FOUND,
-            Json(json!({ "error": "Not Found", "message": format!("Mock with id '{}' not found", id) })),
-        )
-            .into_response(),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": "Internal Server Error", "message": err.to_string() })),
-        )
-            .into_response(),
-    }
+            Json(
+                json!({ "error": "Not Found", "message": format!("Mock with id '{}' not found", id) }),
+            ),
+        ),
+        Err(err) => store_error_response(err),
+    };
+    result.into_response()
 }
 
 async fn update_mock(
@@ -160,17 +160,14 @@ async fn update_mock(
 
     state.sequence_state.reset(&id);
 
-    match state.store.update(&id, partial).await {
+    let result = match state.store.update(&id, partial).await {
         Ok(updated) => {
             state.refresh_cache().await;
-            (StatusCode::OK, Json(json!(updated))).into_response()
+            (StatusCode::OK, Json(json!(updated)))
         }
-        Err(err) => (
-            StatusCode::NOT_FOUND,
-            Json(json!({ "error": "Not Found", "message": err.to_string() })),
-        )
-            .into_response(),
-    }
+        Err(err) => store_error_response(err),
+    };
+    result.into_response()
 }
 
 async fn delete_mock(
@@ -179,17 +176,14 @@ async fn delete_mock(
 ) -> impl IntoResponse {
     state.sequence_state.reset(&id);
 
-    match state.store.delete(&id).await {
+    let result = match state.store.delete(&id).await {
         Ok(()) => {
             state.refresh_cache().await;
-            (StatusCode::OK, Json(json!({ "success": true }))).into_response()
+            (StatusCode::OK, Json(json!({ "success": true })))
         }
-        Err(err) => (
-            StatusCode::NOT_FOUND,
-            Json(json!({ "error": "Not Found", "message": err.to_string() })),
-        )
-            .into_response(),
-    }
+        Err(err) => store_error_response(err),
+    };
+    result.into_response()
 }
 
 async fn reset_mock(

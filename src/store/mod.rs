@@ -1,9 +1,11 @@
 pub mod memory;
 pub mod postgres;
 
+use crate::error::MockServerError;
 use crate::model::{Mock, PartialMock};
-use anyhow::Result;
 use async_trait::async_trait;
+
+type StoreResult<T> = Result<T, MockServerError>;
 
 #[async_trait]
 #[allow(
@@ -11,11 +13,11 @@ use async_trait::async_trait;
     reason = "async_trait macro duplicates must_use in async methods"
 )]
 pub trait MockStore: Send + Sync {
-    async fn init(&self) -> Result<()>;
-    async fn list(&self) -> Result<Vec<Mock>>;
-    async fn get(&self, id: &str) -> Result<Option<Mock>>;
-    async fn create(&self, mock: Mock) -> Result<Mock>;
-    async fn update(&self, id: &str, mock: PartialMock) -> Result<Mock>;
-    async fn update_state(&self, id: &str, state: serde_json::Value) -> Result<()>;
-    async fn delete(&self, id: &str) -> Result<()>;
+    async fn init(&self) -> StoreResult<()>;
+    async fn list(&self) -> StoreResult<Vec<Mock>>;
+    async fn get(&self, id: &str) -> StoreResult<Option<Mock>>;
+    async fn create(&self, mock: Mock) -> StoreResult<Mock>;
+    async fn update(&self, id: &str, mock: PartialMock) -> StoreResult<Mock>;
+    async fn update_state(&self, id: &str, state: serde_json::Value) -> StoreResult<()>;
+    async fn delete(&self, id: &str) -> StoreResult<()>;
 }

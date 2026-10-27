@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod config;
+pub mod error;
 pub mod live_feed;
 pub mod matching;
 pub mod mock_server;

@@ -27,12 +27,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.104"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
-
-[[package]]
 name = "async-lock"
 version = "3.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1210,7 +1204,6 @@ dependencies = [
 name = "mock-server"
 version = "2.0.0"
 dependencies = [
- "anyhow",
  "async-trait",
  "axum",
  "chrono",
@@ -1222,6 +1215,7 @@ dependencies = [
  "serde_json",
  "serde_urlencoded",
  "sqlx",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "tracing",

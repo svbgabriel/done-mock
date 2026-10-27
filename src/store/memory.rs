@@ -1,6 +1,6 @@
 use super::MockStore;
+use crate::error::MockServerError;
 use crate::model::{default_iso_now, Mock, MockType, PartialMock};
-use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -21,11 +21,11 @@ impl InMemoryMockStore {
 
 #[async_trait]
 impl MockStore for InMemoryMockStore {
-    async fn init(&self) -> Result<()> {
+    async fn init(&self) -> super::StoreResult<()> {
         Ok(())
     }
 
-    async fn list(&self) -> Result<Vec<Mock>> {
+    async fn list(&self) -> super::StoreResult<Vec<Mock>> {
         let guard = self.mocks.read().unwrap();
         let mut list: Vec<Mock> = guard.values().cloned().collect();
         list.sort_by(|a, b| {
@@ -36,12 +36,12 @@ impl MockStore for InMemoryMockStore {
         Ok(list)
     }
 
-    async fn get(&self, id: &str) -> Result<Option<Mock>> {
+    async fn get(&self, id: &str) -> super::StoreResult<Option<Mock>> {
         let guard = self.mocks.read().unwrap();
         Ok(guard.get(id).cloned())
     }
 
-    async fn create(&self, mut mock: Mock) -> Result<Mock> {
+    async fn create(&self, mut mock: Mock) -> super::StoreResult<Mock> {
         if mock.id.trim().is_empty() {
             mock.id = Uuid::new_v4().to_string();
         }
@@ -62,22 +62,22 @@ impl MockStore for InMemoryMockStore {
         Ok(mock)
     }
 
-    async fn update(&self, id: &str, partial: PartialMock) -> Result<Mock> {
+    async fn update(&self, id: &str, partial: PartialMock) -> super::StoreResult<Mock> {
         let mut guard = self.mocks.write().unwrap();
         let existing = guard
             .get_mut(id)
-            .ok_or_else(|| anyhow!("Mock with id '{}' not found", id))?;
+            .ok_or_else(|| MockServerError::NotFound(id.to_string()))?;
 
         existing.apply_partial(partial);
 
         Ok(existing.clone())
     }
 
-    async fn update_state(&self, id: &str, state: serde_json::Value) -> Result<()> {
+    async fn update_state(&self, id: &str, state: serde_json::Value) -> super::StoreResult<()> {
         let mut guard = self.mocks.write().unwrap();
         let existing = guard
             .get_mut(id)
-            .ok_or_else(|| anyhow!("Mock with id '{}' not found", id))?;
+            .ok_or_else(|| MockServerError::NotFound(id.to_string()))?;
 
         let parsed: Vec<serde_json::Value> = serde_json::from_value(state).unwrap_or_default();
         existing.state = Some(parsed);
@@ -86,11 +86,11 @@ impl MockStore for InMemoryMockStore {
         Ok(())
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    async fn delete(&self, id: &str) -> super::StoreResult<()> {
         let mut guard = self.mocks.write().unwrap();
         guard
             .remove(id)
-            .ok_or_else(|| anyhow!("Mock with id '{}' not found", id))?;
+            .ok_or_else(|| MockServerError::NotFound(id.to_string()))?;
         Ok(())
     }
 }

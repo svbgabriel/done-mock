@@ -1,5 +1,6 @@
 use mock_server::{
     config::AppConfig,
+    error::MockServerError,
     live_feed::LiveFeed,
     matching::MockIndex,
     mock_server::{create_app_router, MockServerState},
@@ -14,7 +15,7 @@ use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<(), MockServerError> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -54,10 +55,14 @@ async fn main() -> anyhow::Result<()> {
 
     let app_router = create_app_router(server_state);
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
-    let listener = tokio::net::TcpListener::bind(addr).await?;
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .map_err(|e| MockServerError::DatabaseError(format!("Failed to bind address: {}", e)))?;
 
     info!("Mock server listening on http://{}", addr);
-    axum::serve(listener, app_router).await?;
+    axum::serve(listener, app_router)
+        .await
+        .map_err(|e| MockServerError::DatabaseError(format!("Server error: {}", e)))?;
 
     Ok(())
 }

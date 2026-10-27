@@ -1,8 +1,8 @@
 use super::MockStore;
+use crate::error::MockServerError;
 use crate::model::{
     default_iso_now, Condition, Mock, MockResponse, MockType, PartialMock, SequenceMode,
 };
-use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use sqlx::{postgres::PgPoolOptions, PgPool, Row};
@@ -56,7 +56,7 @@ pub struct PostgresMockStore {
 }
 
 impl PostgresMockStore {
-    pub async fn new(postgres_url: &str) -> Result<Self> {
+    pub async fn new(postgres_url: &str) -> super::StoreResult<Self> {
         let max_connections: u32 = std::env::var("POOL_MAX_CONNECTIONS")
             .ok()
             .and_then(|v| v.parse().ok())
@@ -65,14 +65,15 @@ impl PostgresMockStore {
         let pool = PgPoolOptions::new()
             .max_connections(max_connections)
             .connect(postgres_url)
-            .await?;
+            .await
+            .map_err(|e| MockServerError::DatabaseError(e.to_string()))?;
 
         let store = Self { pool };
         store.init().await?;
         Ok(store)
     }
 
-    fn row_to_mock(row: &sqlx::postgres::PgRow) -> Result<Mock> {
+    fn row_to_mock(row: &sqlx::postgres::PgRow) -> super::StoreResult<Mock> {
         let id: String = row.try_get("id")?;
         let name: String = row.try_get("name")?;
         let method: String = row.try_get("method")?;
@@ -126,7 +127,7 @@ impl PostgresMockStore {
 
 #[async_trait]
 impl MockStore for PostgresMockStore {
-    async fn init(&self) -> Result<()> {
+    async fn init(&self) -> super::StoreResult<()> {
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS mocks (
@@ -149,7 +150,7 @@ impl MockStore for PostgresMockStore {
         Ok(())
     }
 
-    async fn list(&self) -> Result<Vec<Mock>> {
+    async fn list(&self) -> super::StoreResult<Vec<Mock>> {
         let rows = sqlx::query(
             r#"
             SELECT id, name, method, path, type, priority, config, state, "createdAt", "updatedAt"
@@ -167,7 +168,7 @@ impl MockStore for PostgresMockStore {
         Ok(mocks)
     }
 
-    async fn get(&self, id: &str) -> Result<Option<Mock>> {
+    async fn get(&self, id: &str) -> super::StoreResult<Option<Mock>> {
         let maybe_row = sqlx::query(
             r#"
             SELECT id, name, method, path, type, priority, config, state, "createdAt", "updatedAt"
@@ -185,7 +186,7 @@ impl MockStore for PostgresMockStore {
         }
     }
 
-    async fn create(&self, mut mock: Mock) -> Result<Mock> {
+    async fn create(&self, mut mock: Mock) -> super::StoreResult<Mock> {
         if mock.id.trim().is_empty() {
             mock.id = Uuid::new_v4().to_string();
         }
@@ -239,11 +240,11 @@ impl MockStore for PostgresMockStore {
         Ok(mock)
     }
 
-    async fn update(&self, id: &str, partial: PartialMock) -> Result<Mock> {
+    async fn update(&self, id: &str, partial: PartialMock) -> super::StoreResult<Mock> {
         let mut existing = self
             .get(id)
             .await?
-            .ok_or_else(|| anyhow!("Mock with id '{}' not found", id))?;
+            .ok_or_else(|| MockServerError::NotFound(id.to_string()))?;
 
         existing.apply_partial(partial);
 
@@ -285,7 +286,7 @@ impl MockStore for PostgresMockStore {
         Ok(existing)
     }
 
-    async fn update_state(&self, id: &str, state: serde_json::Value) -> Result<()> {
+    async fn update_state(&self, id: &str, state: serde_json::Value) -> super::StoreResult<()> {
         let updated_at = default_iso_now();
         let res = sqlx::query(
             r#"
@@ -301,13 +302,13 @@ impl MockStore for PostgresMockStore {
         .await?;
 
         if res.rows_affected() == 0 {
-            return Err(anyhow!("Mock with id '{}' not found", id));
+            return Err(MockServerError::NotFound(id.to_string()));
         }
 
         Ok(())
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    async fn delete(&self, id: &str) -> super::StoreResult<()> {
         let res = sqlx::query(
             r#"
             DELETE FROM mocks
@@ -319,7 +320,7 @@ impl MockStore for PostgresMockStore {
         .await?;
 
         if res.rows_affected() == 0 {
-            return Err(anyhow!("Mock with id '{}' not found", id));
+            return Err(MockServerError::NotFound(id.to_string()));
         }
 
         Ok(())
