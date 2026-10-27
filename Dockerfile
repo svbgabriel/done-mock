@@ -29,7 +29,7 @@ FROM gcr.io/distroless/cc-debian13:nonroot
 WORKDIR /app
 COPY --chown=nonroot:nonroot --from=builder /app/target/release/done-mock ./done-mock
 COPY --chown=nonroot:nonroot --from=builder /app/ui ./ui
-COPY --chown=nonroot:nonroot --from=healthcheck /usr/bin/wget /usr/bin/wget
+COPY --chown=nonroot:nonroot --from=healthcheck /bin/wget /usr/bin/wget
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
