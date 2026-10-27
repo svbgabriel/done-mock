@@ -57,8 +57,13 @@ pub struct PostgresMockStore {
 
 impl PostgresMockStore {
     pub async fn new(postgres_url: &str) -> Result<Self> {
+        let max_connections: u32 = std::env::var("POOL_MAX_CONNECTIONS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(10);
+
         let pool = PgPoolOptions::new()
-            .max_connections(5)
+            .max_connections(max_connections)
             .connect(postgres_url)
             .await?;
 
