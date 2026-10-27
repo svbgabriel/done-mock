@@ -1,7 +1,7 @@
 use crate::admin::create_admin_router;
 use crate::live_feed::LiveFeed;
 use crate::matching::{find_best_match_indexed, MockIndex};
-use crate::model::{default_iso_now, FeedEntry, MockRequest, MockType};
+use crate::model::{default_iso_now, FeedEntry, Mock, MockRequest, MockType};
 use crate::responder::{
     handle_conditional_mock, handle_rest_mock, handle_script_mock, handle_sequence_mock,
     handle_static_mock, SequenceState,
@@ -10,8 +10,9 @@ use crate::script::ScriptEngine;
 use crate::store::MockStore;
 use crate::ui;
 use axum::{
+    body::Bytes,
     extract::{Request, State},
-    http::StatusCode,
+    http::{self, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
     Json, Router,
@@ -58,10 +59,10 @@ pub fn create_app_router(state: MockServerState) -> Router {
         .with_state(state)
 }
 
-pub async fn handle_mock_request(State(state): State<MockServerState>, req: Request) -> Response {
-    let start = Instant::now();
-    let (parts, body) = req.into_parts();
-
+/// Parse the incoming HTTP request into a MockRequest.
+///
+/// Extracts query parameters, headers, and body from the request parts.
+fn parse_mock_request(parts: &http::request::Parts, body_bytes: &Bytes) -> MockRequest {
     let method = parts.method.to_string();
     let path = parts.uri.path().to_string();
 
@@ -81,6 +82,80 @@ pub async fn handle_mock_request(State(state): State<MockServerState>, req: Requ
         }
     }
 
+    let body_str = String::from_utf8_lossy(body_bytes).to_string();
+    let json_body: Option<serde_json::Value> = serde_json::from_str(&body_str).ok();
+
+    MockRequest {
+        method,
+        path,
+        path_params: HashMap::new(),
+        headers,
+        query,
+        body: body_str,
+        json_body,
+    }
+}
+
+/// Dispatch to the appropriate handler based on the mock type.
+///
+/// Routes Static, Conditional, Sequence, Script, and Rest mocks to their
+/// respective handlers.
+async fn dispatch_mock_response(
+    mock: &Mock,
+    mock_req: &MockRequest,
+    state: &MockServerState,
+) -> Response {
+    match mock.mock_type {
+        MockType::Static => handle_static_mock(mock),
+        MockType::Conditional => handle_conditional_mock(mock, mock_req),
+        MockType::Sequence => handle_sequence_mock(mock, &state.sequence_state),
+        MockType::Script => handle_script_mock(mock, mock_req, &state.script_engine).await,
+        MockType::Rest => {
+            // REST mocks need fresh state from store, not from cache
+            let fresh_mock = state
+                .store
+                .get(&mock.id)
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or(mock.clone());
+            handle_rest_mock(&fresh_mock, mock_req, &state.store).await
+        }
+    }
+}
+
+/// Record a feed entry for a completed request.
+///
+/// Creates a FeedEntry with timing and match information and records it
+/// in the live feed.
+fn record_feed_entry(
+    live_feed: &LiveFeed,
+    method: String,
+    path: String,
+    matched_mock_id: Option<String>,
+    matched_mock_name: Option<String>,
+    status: u16,
+    duration_ms: f64,
+) {
+    live_feed.record(FeedEntry {
+        id: Uuid::new_v4().to_string(),
+        timestamp: default_iso_now(),
+        method,
+        path,
+        matched_mock_id,
+        matched_mock_name,
+        status,
+        duration_ms,
+    });
+}
+
+pub async fn handle_mock_request(State(state): State<MockServerState>, req: Request) -> Response {
+    let start = Instant::now();
+    let (parts, body) = req.into_parts();
+
+    let method = parts.method.to_string();
+    let path = parts.uri.path().to_string();
+
     let body_bytes = match axum::body::to_bytes(body, 10 * 1024 * 1024).await {
         Ok(b) => b,
         Err(_) => {
@@ -91,18 +166,8 @@ pub async fn handle_mock_request(State(state): State<MockServerState>, req: Requ
                 .into_response()
         }
     };
-    let body_str = String::from_utf8_lossy(&body_bytes).to_string();
-    let json_body: Option<serde_json::Value> = serde_json::from_str(&body_str).ok();
 
-    let mut mock_req = MockRequest {
-        method: method.clone(),
-        path: path.clone(),
-        path_params: HashMap::new(),
-        headers,
-        query,
-        body: body_str,
-        json_body,
-    };
+    let mut mock_req = parse_mock_request(&parts, &body_bytes);
 
     let index = state.mock_index.read().await;
     let match_res = find_best_match_indexed(&index, &mock_req);
@@ -112,52 +177,34 @@ pub async fn handle_mock_request(State(state): State<MockServerState>, req: Requ
         let mock_id = mock.id.clone();
         let mock_name = mock.name.clone();
 
-        let response = match mock.mock_type {
-            MockType::Static => handle_static_mock(&mock),
-            MockType::Conditional => handle_conditional_mock(&mock, &mock_req),
-            MockType::Sequence => handle_sequence_mock(&mock, &state.sequence_state),
-            MockType::Script => handle_script_mock(&mock, &mock_req, &state.script_engine).await,
-            MockType::Rest => {
-                // REST mocks need fresh state from store, not from cache
-                let fresh_mock = state
-                    .store
-                    .get(&mock.id)
-                    .await
-                    .ok()
-                    .flatten()
-                    .unwrap_or(mock);
-                handle_rest_mock(&fresh_mock, &mock_req, &state.store).await
-            }
-        };
+        let response = dispatch_mock_response(&mock, &mock_req, &state).await;
 
         let duration_ms = start.elapsed().as_secs_f64() * 1000.0;
         let status = response.status().as_u16();
 
-        state.live_feed.record(FeedEntry {
-            id: Uuid::new_v4().to_string(),
-            timestamp: default_iso_now(),
+        record_feed_entry(
+            &state.live_feed,
             method,
             path,
-            matched_mock_id: Some(mock_id),
-            matched_mock_name: Some(mock_name),
+            Some(mock_id),
+            Some(mock_name),
             status,
             duration_ms,
-        });
+        );
 
         response
     } else {
         let duration_ms = start.elapsed().as_secs_f64() * 1000.0;
 
-        state.live_feed.record(FeedEntry {
-            id: Uuid::new_v4().to_string(),
-            timestamp: default_iso_now(),
-            method: method.clone(),
-            path: path.clone(),
-            matched_mock_id: None,
-            matched_mock_name: None,
-            status: 404,
+        record_feed_entry(
+            &state.live_feed,
+            method.clone(),
+            path.clone(),
+            None,
+            None,
+            404,
             duration_ms,
-        });
+        );
 
         let payload = json!({
             "error": "Not Found",
