@@ -1,6 +1,7 @@
 use crate::model::{MockRequest, MockResponse};
 use rquickjs::{AsyncContext, AsyncRuntime, Promise};
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::time::Duration;
 use tokio::sync::oneshot;
 
@@ -28,12 +29,33 @@ impl ScriptEngine {
                 .unwrap();
 
             rt.block_on(async move {
+                // Create QuickJS runtime once and reuse it for all script executions
+                let runtime = match AsyncRuntime::new() {
+                    Ok(rt) => rt,
+                    Err(e) => {
+                        tracing::error!("Failed to create QuickJS runtime: {}", e);
+                        return;
+                    }
+                };
+                runtime.set_max_stack_size(256 * 1024).await;
+
+                let ctx = match AsyncContext::full(&runtime).await {
+                    Ok(ctx) => ctx,
+                    Err(e) => {
+                        tracing::error!("Failed to create QuickJS context: {}", e);
+                        return;
+                    }
+                };
+
+                let runtime = Rc::new(runtime);
+                let ctx = Rc::new(ctx);
+
                 while let Some(job) = rx.recv().await {
                     let script = job.script;
                     let req = job.req;
                     let respondent = job.respondent;
 
-                    let res = run_js_script(&script, &req).await;
+                    let res = run_js_script(&script, &req, &runtime, &ctx).await;
 
                     let _ = respondent.send(res);
                 }
@@ -77,13 +99,12 @@ impl ScriptEngine {
     }
 }
 
-async fn run_js_script(script: &str, req: &MockRequest) -> Result<MockResponse, String> {
-    let runtime = AsyncRuntime::new().map_err(|e| format!("Script error: {}", e))?;
-    runtime.set_max_stack_size(256 * 1024).await;
-    let ctx = AsyncContext::full(&runtime)
-        .await
-        .map_err(|e| format!("Script error: {}", e))?;
-
+async fn run_js_script(
+    script: &str,
+    req: &MockRequest,
+    _runtime: &Rc<AsyncRuntime>,
+    ctx: &Rc<AsyncContext>,
+) -> Result<MockResponse, String> {
     let mut lower_headers = HashMap::new();
     for (k, v) in &req.headers {
         lower_headers.insert(k.to_lowercase(), v.clone());
