@@ -1,5 +1,6 @@
 use mock_server::{
     live_feed::LiveFeed,
+    matching::MockIndex,
     mock_server::{create_app_router, MockServerState},
     model::*,
     responder::SequenceState,
@@ -20,11 +21,13 @@ async fn spawn_test_server() -> String {
     let live_feed = LiveFeed::new();
 
     let initial_mocks = store.list().await.unwrap_or_default();
-    let mock_cache = Arc::new(tokio::sync::RwLock::new(initial_mocks));
+    let mock_cache = Arc::new(tokio::sync::RwLock::new(initial_mocks.clone()));
+    let mock_index = Arc::new(tokio::sync::RwLock::new(MockIndex::build(&initial_mocks)));
 
     let server_state = MockServerState {
         store,
         mock_cache,
+        mock_index,
         sequence_state,
         script_engine: Some(script_engine),
         live_feed,

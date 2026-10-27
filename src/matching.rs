@@ -1,10 +1,61 @@
 use crate::model::{Mock, MockRequest, MockType};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct MatchResult {
     pub matched_mock: Option<Mock>,
     pub path_params: HashMap<String, String>,
+}
+
+/// Indexes mocks by HTTP method for fast lookup.
+/// Each method maps to a list of `(Arc<Mock>, path_prefix)` candidates.
+/// The path_prefix is the first static segment of the pattern, used for
+/// a quick pre-filter before the full pattern match.
+#[derive(Debug, Clone, Default)]
+pub struct MockIndex {
+    /// method (uppercase) -> list of indexed mocks
+    by_method: HashMap<String, Vec<Arc<Mock>>>,
+}
+
+impl MockIndex {
+    pub fn new() -> Self {
+        Self {
+            by_method: HashMap::new(),
+        }
+    }
+
+    /// Build an index from a slice of mocks. Returns Arc<Mock> entries.
+    pub fn build(mocks: &[Mock]) -> Self {
+        let mut index = Self::new();
+        for mock in mocks {
+            let arc_mock = Arc::new(mock.clone());
+            let method = mock.method.to_ascii_uppercase();
+            index.by_method.entry(method).or_default().push(arc_mock);
+        }
+        index
+    }
+
+    /// Look up candidates for the given method.
+    /// Returns mocks for the exact method plus wildcard (`*`) mocks.
+    pub fn query(&self, method: &str) -> Vec<Arc<Mock>> {
+        let method_upper = method.to_ascii_uppercase();
+        let mut candidates = Vec::new();
+
+        if let Some(method_mocks) = self.by_method.get(&method_upper) {
+            for m in method_mocks {
+                candidates.push(Arc::clone(m));
+            }
+        }
+
+        if let Some(wildcard_mocks) = self.by_method.get("*") {
+            for m in wildcard_mocks {
+                candidates.push(Arc::clone(m));
+            }
+        }
+
+        candidates
+    }
 }
 
 pub fn match_path_pattern(
@@ -161,12 +212,15 @@ pub fn matches_mock(mock: &Mock, req: &MockRequest) -> Option<HashMap<String, St
     match_path_pattern(&mock.path, &req.path, is_rest)
 }
 
-pub fn find_best_match(mocks: &[Mock], req: &MockRequest) -> MatchResult {
+/// Find the best matching mock using the index for O(1) method lookup.
+/// This avoids iterating all mocks by first filtering by HTTP method.
+pub fn find_best_match_indexed(index: &MockIndex, req: &MockRequest) -> MatchResult {
+    let candidates_arc = index.query(&req.method);
     let mut candidates: Vec<(Mock, HashMap<String, String>)> = Vec::new();
 
-    for mock in mocks {
-        if let Some(params) = matches_mock(mock, req) {
-            candidates.push((mock.clone(), params));
+    for arc_mock in candidates_arc {
+        if let Some(params) = matches_mock(&arc_mock, req) {
+            candidates.push((arc_mock.as_ref().clone(), params));
         }
     }
 
@@ -187,6 +241,11 @@ pub fn find_best_match(mocks: &[Mock], req: &MockRequest) -> MatchResult {
             path_params: HashMap::new(),
         }
     }
+}
+
+pub fn find_best_match(mocks: &[Mock], req: &MockRequest) -> MatchResult {
+    let index = MockIndex::build(mocks);
+    find_best_match_indexed(&index, req)
 }
 
 #[cfg(test)]

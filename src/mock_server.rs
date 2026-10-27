@@ -1,6 +1,6 @@
 use crate::admin::create_admin_router;
 use crate::live_feed::LiveFeed;
-use crate::matching::find_best_match;
+use crate::matching::{find_best_match_indexed, MockIndex};
 use crate::model::{default_iso_now, FeedEntry, MockRequest, MockType};
 use crate::responder::{
     handle_conditional_mock, handle_rest_mock, handle_script_mock, handle_sequence_mock,
@@ -26,6 +26,7 @@ use uuid::Uuid;
 pub struct MockServerState {
     pub store: Arc<dyn MockStore>,
     pub mock_cache: Arc<tokio::sync::RwLock<Vec<crate::model::Mock>>>,
+    pub mock_index: Arc<tokio::sync::RwLock<MockIndex>>,
     pub sequence_state: SequenceState,
     pub script_engine: Option<ScriptEngine>,
     pub live_feed: LiveFeed,
@@ -35,7 +36,9 @@ impl MockServerState {
     pub async fn refresh_cache(&self) {
         if let Ok(mocks) = self.store.list().await {
             let mut cache = self.mock_cache.write().await;
-            *cache = mocks;
+            *cache = mocks.clone();
+            let mut index = self.mock_index.write().await;
+            *index = MockIndex::build(&mocks);
         }
     }
 }
@@ -101,8 +104,8 @@ pub async fn handle_mock_request(State(state): State<MockServerState>, req: Requ
         json_body,
     };
 
-    let mocks = state.mock_cache.read().await.clone();
-    let match_res = find_best_match(&mocks, &mock_req);
+    let index = state.mock_index.read().await;
+    let match_res = find_best_match_indexed(&index, &mock_req);
 
     if let Some(mock) = match_res.matched_mock {
         mock_req.path_params = match_res.path_params;
