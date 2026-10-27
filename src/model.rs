@@ -1,4 +1,5 @@
 use chrono::Utc;
+use partially::Partial;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -92,9 +93,12 @@ pub struct Condition {
     pub response: MockResponse,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Partial)]
+#[partially(rename = "PartialMock")]
+#[partially(derive(Debug, Clone, Serialize, Deserialize, Default))]
 pub struct Mock {
     #[serde(default = "default_uuid")]
+    #[partially(omit)]
     pub id: String,
     pub name: String,
     pub method: String,
@@ -106,36 +110,43 @@ pub struct Mock {
 
     // Static Mock fields
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[partially(transparent)]
     pub response: Option<MockResponse>,
 
     // Conditional Mock fields
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[partially(transparent)]
     pub conditions: Option<Vec<Condition>>,
     #[serde(
         default,
         rename = "elseResponse",
         skip_serializing_if = "Option::is_none"
     )]
+    #[partially(transparent)]
     pub else_response: Option<MockResponse>,
 
     // Sequence Mock fields
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[partially(transparent)]
     pub sequence: Option<Vec<MockResponse>>,
     #[serde(
         default,
         rename = "sequenceMode",
         skip_serializing_if = "Option::is_none"
     )]
+    #[partially(transparent)]
     pub sequence_mode: Option<SequenceMode>,
 
     // Script Mock fields
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[partially(transparent)]
     pub script: Option<String>,
     #[serde(
         default,
         rename = "scriptTimeoutMs",
         skip_serializing_if = "Option::is_none"
     )]
+    #[partially(transparent)]
     pub script_timeout_ms: Option<u64>,
 
     // REST Mock fields
@@ -144,19 +155,24 @@ pub struct Mock {
         rename = "restIdField",
         skip_serializing_if = "Option::is_none"
     )]
+    #[partially(transparent)]
     pub rest_id_field: Option<String>,
     #[serde(
         default,
         rename = "restInitialState",
         skip_serializing_if = "Option::is_none"
     )]
+    #[partially(transparent)]
     pub rest_initial_state: Option<Vec<serde_json::Value>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[partially(transparent)]
     pub state: Option<Vec<serde_json::Value>>,
 
     #[serde(default = "default_iso_now", rename = "createdAt")]
+    #[partially(omit)]
     pub created_at: String,
     #[serde(default = "default_iso_now", rename = "updatedAt")]
+    #[partially(omit)]
     pub updated_at: String,
 }
 
@@ -391,81 +407,19 @@ impl Mock {
 
     /// Applies the fields present in `PartialMock` to this `Mock`,
     /// updating the `updated_at` timestamp.
+    ///
+    /// Uses the `partially::Partial` trait to apply only the `Some` fields
+    /// from the generated `PartialMock` struct.
     pub fn apply_partial(&mut self, partial: PartialMock) {
-        if let Some(name) = partial.name {
-            self.name = name;
-        }
-        if let Some(method) = partial.method {
-            self.method = method;
-        }
-        if let Some(path) = partial.path {
-            self.path = path;
-        }
-        if let Some(mock_type) = partial.mock_type {
-            self.mock_type = mock_type;
-        }
-        if let Some(priority) = partial.priority {
-            self.priority = priority;
-        }
-        if partial.response.is_some() {
-            self.response = partial.response;
-        }
-        if partial.conditions.is_some() {
-            self.conditions = partial.conditions;
-        }
-        if partial.else_response.is_some() {
-            self.else_response = partial.else_response;
-        }
-        if partial.sequence.is_some() {
-            self.sequence = partial.sequence;
-        }
-        if partial.sequence_mode.is_some() {
-            self.sequence_mode = partial.sequence_mode;
-        }
-        if partial.script.is_some() {
-            self.script = partial.script;
-        }
-        if partial.script_timeout_ms.is_some() {
-            self.script_timeout_ms = partial.script_timeout_ms;
-        }
-        if partial.rest_id_field.is_some() {
-            self.rest_id_field = partial.rest_id_field;
-        }
-        if partial.rest_initial_state.is_some() {
-            self.rest_initial_state = partial.rest_initial_state;
-        }
-        if partial.state.is_some() {
-            self.state = partial.state;
-        }
-
+        self.apply_some(partial);
         self.updated_at = default_iso_now();
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct PartialMock {
-    pub name: Option<String>,
-    pub method: Option<String>,
-    pub path: Option<String>,
-    #[serde(rename = "type")]
-    pub mock_type: Option<MockType>,
-    pub priority: Option<i32>,
-    pub response: Option<MockResponse>,
-    pub conditions: Option<Vec<Condition>>,
-    #[serde(rename = "elseResponse")]
-    pub else_response: Option<MockResponse>,
-    pub sequence: Option<Vec<MockResponse>>,
-    #[serde(rename = "sequenceMode")]
-    pub sequence_mode: Option<SequenceMode>,
-    pub script: Option<String>,
-    #[serde(rename = "scriptTimeoutMs")]
-    pub script_timeout_ms: Option<u64>,
-    #[serde(rename = "restIdField")]
-    pub rest_id_field: Option<String>,
-    #[serde(rename = "restInitialState")]
-    pub rest_initial_state: Option<Vec<serde_json::Value>>,
-    pub state: Option<Vec<serde_json::Value>>,
-}
+// `PartialMock` is automatically generated by the `#[derive(Partial)]` macro on `Mock`.
+// It contains all fields of `Mock` wrapped in `Option<T>`, except for `id`, `created_at`,
+// and `updated_at` which are marked with `#[partially(omit)]`.
+// The generated struct derives: Debug, Clone, Serialize, Deserialize, Default.
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FeedEntry {

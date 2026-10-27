@@ -20,6 +20,7 @@ rquickjs = { version = "0.14", features = ["futures"] }
 chrono = { version = "0.4", features = ["serde"] }
 futures-util = "0.3"
 tokio-stream = { version = "0.1", features = ["sync"] }
+partially = { version = "0.2", features = ["derive"] }
 
 [dev-dependencies]
 reqwest = { version = "0.13.5", features = ["json"] }
