@@ -37,8 +37,13 @@ async fn main() -> anyhow::Result<()> {
     let script_engine = ScriptEngine::new(Duration::from_millis(config.script_timeout_ms));
     let live_feed = LiveFeed::new();
 
+    // Initialize mock cache from store
+    let initial_mocks = store.list().await.unwrap_or_default();
+    let mock_cache = Arc::new(tokio::sync::RwLock::new(initial_mocks));
+
     let server_state = MockServerState {
         store,
+        mock_cache,
         sequence_state,
         script_engine: Some(script_engine),
         live_feed,

@@ -101,7 +101,10 @@ async fn create_mock(
     }
 
     match state.store.create(mock).await {
-        Ok(created) => (StatusCode::CREATED, Json(json!(created))).into_response(),
+        Ok(created) => {
+            state.refresh_cache().await;
+            (StatusCode::CREATED, Json(json!(created))).into_response()
+        }
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "error": "Internal Server Error", "message": err.to_string() })),
@@ -158,7 +161,10 @@ async fn update_mock(
     state.sequence_state.reset(&id);
 
     match state.store.update(&id, partial).await {
-        Ok(updated) => (StatusCode::OK, Json(json!(updated))).into_response(),
+        Ok(updated) => {
+            state.refresh_cache().await;
+            (StatusCode::OK, Json(json!(updated))).into_response()
+        }
         Err(err) => (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": "Not Found", "message": err.to_string() })),
@@ -174,7 +180,10 @@ async fn delete_mock(
     state.sequence_state.reset(&id);
 
     match state.store.delete(&id).await {
-        Ok(()) => (StatusCode::OK, Json(json!({ "success": true }))).into_response(),
+        Ok(()) => {
+            state.refresh_cache().await;
+            (StatusCode::OK, Json(json!({ "success": true }))).into_response()
+        }
         Err(err) => (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": "Not Found", "message": err.to_string() })),

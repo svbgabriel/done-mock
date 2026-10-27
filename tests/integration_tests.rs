@@ -5,6 +5,7 @@ use mock_server::{
     responder::SequenceState,
     script::ScriptEngine,
     store::memory::InMemoryMockStore,
+    store::MockStore,
 };
 use reqwest::Client;
 use serde_json::json;
@@ -18,8 +19,12 @@ async fn spawn_test_server() -> String {
     let script_engine = ScriptEngine::new(Duration::from_millis(2000));
     let live_feed = LiveFeed::new();
 
+    let initial_mocks = store.list().await.unwrap_or_default();
+    let mock_cache = Arc::new(tokio::sync::RwLock::new(initial_mocks));
+
     let server_state = MockServerState {
         store,
+        mock_cache,
         sequence_state,
         script_engine: Some(script_engine),
         live_feed,

@@ -25,9 +25,19 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct MockServerState {
     pub store: Arc<dyn MockStore>,
+    pub mock_cache: Arc<tokio::sync::RwLock<Vec<crate::model::Mock>>>,
     pub sequence_state: SequenceState,
     pub script_engine: Option<ScriptEngine>,
     pub live_feed: LiveFeed,
+}
+
+impl MockServerState {
+    pub async fn refresh_cache(&self) {
+        if let Ok(mocks) = self.store.list().await {
+            let mut cache = self.mock_cache.write().await;
+            *cache = mocks;
+        }
+    }
 }
 
 pub fn create_app_router(state: MockServerState) -> Router {
@@ -91,18 +101,30 @@ pub async fn handle_mock_request(State(state): State<MockServerState>, req: Requ
         json_body,
     };
 
-    let mocks = state.store.list().await.unwrap_or_default();
+    let mocks = state.mock_cache.read().await.clone();
     let match_res = find_best_match(&mocks, &mock_req);
 
     if let Some(mock) = match_res.matched_mock {
         mock_req.path_params = match_res.path_params;
+        let mock_id = mock.id.clone();
+        let mock_name = mock.name.clone();
 
         let response = match mock.mock_type {
             MockType::Static => handle_static_mock(&mock),
             MockType::Conditional => handle_conditional_mock(&mock, &mock_req),
             MockType::Sequence => handle_sequence_mock(&mock, &state.sequence_state),
             MockType::Script => handle_script_mock(&mock, &mock_req, &state.script_engine).await,
-            MockType::Rest => handle_rest_mock(&mock, &mock_req, &state.store).await,
+            MockType::Rest => {
+                // REST mocks need fresh state from store, not from cache
+                let fresh_mock = state
+                    .store
+                    .get(&mock.id)
+                    .await
+                    .ok()
+                    .flatten()
+                    .unwrap_or(mock);
+                handle_rest_mock(&fresh_mock, &mock_req, &state.store).await
+            }
         };
 
         let duration_ms = start.elapsed().as_secs_f64() * 1000.0;
@@ -113,8 +135,8 @@ pub async fn handle_mock_request(State(state): State<MockServerState>, req: Requ
             timestamp: default_iso_now(),
             method,
             path,
-            matched_mock_id: Some(mock.id),
-            matched_mock_name: Some(mock.name),
+            matched_mock_id: Some(mock_id),
+            matched_mock_name: Some(mock_name),
             status,
             duration_ms,
         });
