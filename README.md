@@ -2,6 +2,8 @@
 
 A customizable mock HTTP server built with Rust, Axum, and `rquickjs` (QuickJS). Inspired by [sMockin](https://github.com/matthewgallina/smockin).
 
+> **Note:** This project was previously named **double-deno-mock** (when it used Deno). The v1 version with Deno is still available on the [`v1`](https://github.com/svbgabriel/done-mock/tree/v1) branch. The project has been rewritten in Rust and renamed to **done-mock**.
+
 ## Features
 
 - **Static Mocks**: Fixed status, headers, and body.
