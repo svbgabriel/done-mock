@@ -7,7 +7,7 @@ WORKDIR /home/rust/src
 COPY Cargo.toml Cargo.lock ./
 # main.rs has to exist so we just touch it, gets overridden when we add src
 RUN mkdir -p src && touch src/main.rs
-RUN cargo fetch --locked --no-default-features
+RUN cargo fetch --locked
 
 # Copy source code last (changes frequently, invalidates cache less often)
 COPY src/ ./src/
