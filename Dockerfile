@@ -2,11 +2,6 @@
 FROM rust:1.99-slim AS builder
 WORKDIR /app
 
-# Install build dependencies for SQLx (native-tls)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends pkg-config libssl-dev && \
-    rm -rf /var/lib/apt/lists/*
-
 # Copy manifest files first for dependency caching
 COPY Cargo.toml Cargo.lock ./
 # main.rs has to exist so we just touch it, gets overriden when we add src
