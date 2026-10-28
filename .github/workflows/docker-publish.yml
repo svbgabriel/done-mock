@@ -58,13 +58,13 @@ jobs:
         id: meta-minimal
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-minimal
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=sha,enable=true,priority=100,prefix=,suffix=,format=short
+            type=semver,pattern={{version}}-minimal
+            type=semver,pattern={{major}}.{{minor}}-minimal
+            type=semver,pattern={{major}}-minimal
+            type=raw,value=latest-minimal,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,enable=true,priority=100,prefix=,suffix=-minimal,format=short
 
       - name: Build and push minimal Docker image (no default features)
         uses: docker/build-push-action@v7
