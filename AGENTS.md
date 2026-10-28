@@ -299,11 +299,19 @@ The Docker image builds with all default features. A minimal image can be built 
 - The final image should be minimalist (distroless).
 - Run `docker build -t done-mock .` locally to verify.
 
+### Dockerfile.minimal
+
+- `Dockerfile.minimal` produces a lightweight image with `--no-default-features` (no PostgreSQL, no script engine, no UI).
+- This image is intended for use with testcontainers, where only the in-memory store is needed.
+- Build locally with: `docker build -f Dockerfile.minimal -t done-mock-minimal .`
+
 ### GitHub Actions
 
-- Workflow in `.github/workflows/rust.yml` runs two jobs:
+- CI workflow in `.github/workflows/rust.yml` runs three jobs:
   1. **verify** — `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`
-  2. **docker-build** — builds the Docker image to verify the musl cross-compilation pipeline
+  2. **docker-build** — builds the full Docker image to verify the musl cross-compilation pipeline
+  3. **docker-build-minimal** — builds the minimal Docker image (no default features) for testcontainers
+- Publish workflow in `.github/workflows/docker-publish.yml` builds and pushes both the full and minimal images to GHCR on version tags.
 - Add new jobs only when necessary.
 
 ---
@@ -447,6 +455,20 @@ Build the image locally with:
 docker build -t done-mock .
 ```
 
+### Dockerfile.minimal
+
+The `Dockerfile.minimal` produces a **lightweight image** compiled with `--no-default-features`, excluding PostgreSQL, script engine, and UI components. This image is intended for use with **testcontainers**, where only the in-memory store is needed.
+
+- Uses the same musl-cross builder stage as the main Dockerfile.
+- Builds with `cargo build --release --locked --no-default-features`.
+- Does not include the `ui/` directory in the final image (no static assets needed).
+
+Build the minimal image locally with:
+
+```bash
+docker build -f Dockerfile.minimal -t done-mock-minimal .
+```
+
 ### docker-compose.yml
 
 The `docker-compose.yml` file builds the image from the `Dockerfile` automatically — no manual image tag is required. It also includes a PostgreSQL service for the database backend.
@@ -463,9 +485,12 @@ The CI workflow (`.github/workflows/rust.yml`) runs on every push and pull reque
    - `cargo fmt --check` — validates formatting
    - `cargo clippy -- -D warnings` — validates lints
    - `cargo test` — runs all tests
-2. **docker-build** job — builds the Docker image to verify the musl cross-compilation pipeline end-to-end
+2. **docker-build** job — builds the full Docker image to verify the musl cross-compilation pipeline end-to-end
+3. **docker-build-minimal** job — builds the minimal Docker image (`--no-default-features`) for testcontainers
 
-The verify job does not target the musl cross-compilation — it only checks the standard Rust toolchain. The docker-build job validates that the Dockerfile produces a working image.
+The verify job does not target the musl cross-compilation — it only checks the standard Rust toolchain. The docker-build jobs validate that both Dockerfiles produce working images.
+
+The publish workflow (`.github/workflows/docker-publish.yml`) runs on version tags (`*.*.*`) and manual dispatch. It builds and pushes both the full Docker image and the minimal image (`-minimal` suffix) to GitHub Container Registry (GHCR).
 
 ---
 

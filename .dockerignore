@@ -17,6 +17,7 @@ target/
 .dockerignore
 docker-compose.yml
 Dockerfile
+Dockerfile.minimal
 
 # Documentation
 *.md

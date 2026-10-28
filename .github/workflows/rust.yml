@@ -42,3 +42,13 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t done-mock .
+
+  docker-build-minimal:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Build minimal Docker image (no default features)
+        run: docker build -f Dockerfile.minimal -t done-mock-minimal .
