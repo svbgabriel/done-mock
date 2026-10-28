@@ -1,32 +1,28 @@
-# Build stage - optimized multi-layer caching
-FROM rust:1.99-slim AS builder
-WORKDIR /app
+# Build stage - statically linked binary via musl-cross
+# This image works on any host architecture
+FROM ghcr.io/rust-cross/rust-musl-cross:x86_64-musl AS builder
+WORKDIR /home/rust/src
 
 # Copy manifest files first for dependency caching
 COPY Cargo.toml Cargo.lock ./
-# main.rs has to exist so we just touch it, gets overriden when we add src
-RUN mkdir src; touch src/main.rs
+# main.rs has to exist so we just touch it, gets overridden when we add src
+RUN mkdir -p src && touch src/main.rs
 RUN cargo fetch --locked
 
 # Copy source code last (changes frequently, invalidates cache less often)
 COPY src/ ./src/
 COPY ui/ ./ui/
 
-# Rebuild with source code (only recompiles changed crates)
+# Build static binary (target is pre-configured in the image)
 RUN cargo build --release --locked
 
-# Healthcheck stage - static wget from busybox
-FROM busybox:uclibc AS healthcheck
+# Strip binary to reduce size
+RUN musl-strip target/x86_64-unknown-linux-musl/release/done-mock
 
-# Production stage - minimal distroless image
-FROM gcr.io/distroless/cc-debian13:nonroot
-
+# Production stage - static distroless (no C standard library needed)
+FROM gcr.io/distroless/static-debian13:nonroot
 WORKDIR /app
-COPY --chown=nonroot:nonroot --from=builder /app/target/release/done-mock ./done-mock
-COPY --chown=nonroot:nonroot --from=builder /app/ui ./ui
-COPY --chown=nonroot:nonroot --from=healthcheck /bin/wget /usr/bin/wget
-
+COPY --chown=nonroot:nonroot --from=builder /home/rust/src/target/x86_64-unknown-linux-musl/release/done-mock ./done-mock
+COPY --chown=nonroot:nonroot --from=builder /home/rust/src/ui ./ui
 EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ["wget", "--spider", "-q", "http://localhost:8000/__admin/health"]
 ENTRYPOINT ["./done-mock"]

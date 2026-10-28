@@ -411,6 +411,44 @@ pub fn find_best_match(index: &MockIndex, req: &MockRequest) -> MatchResult {
 
 ---
 
+## 🐳 Docker & CI/CD
+
+### Dockerfile
+
+The project uses a **Docker multi-stage build** that produces a **statically linked binary** via the `x86_64-unknown-linux-musl` target:
+
+- **Builder stage**: `ghcr.io/rust-cross/rust-musl-cross:x86_64-musl` — pre-configured image with musl toolchain, works on any host architecture (including M1/M2 Macs via QEMU). The target is set as the default, so `cargo build --release` automatically compiles for musl.
+- **Build command**: `cargo build --release --locked` produces a fully static binary with no dynamic library dependencies.
+- **Binary stripping**: `musl-strip` reduces the binary size after building.
+- **Production stage**: `gcr.io/distroless/static-debian13:nonroot` — the `static` variant is designed for statically linked binaries; it has a smaller attack surface and does not include the C standard library.
+- **No health check**: The `distroless/static` image has no shell or utilities, so Docker-level health checks are not possible. Use orchestration tools (Kubernetes, docker-compose) for external health monitoring.
+
+Build the image locally with:
+
+```bash
+docker build -t done-mock .
+```
+
+### docker-compose.yml
+
+The `docker-compose.yml` file builds the image from the `Dockerfile` automatically — no manual image tag is required. It also includes a PostgreSQL service for the database backend.
+
+```bash
+docker compose up --build
+```
+
+### GitHub Actions
+
+The CI workflow (`.github/workflows/rust.yml`) runs on every push and pull request to `main`:
+
+1. `cargo fmt --check` — validates formatting
+2. `cargo clippy -- -D warnings` — validates lints
+3. `cargo test` — runs all tests
+
+The CI does not target the musl cross-compilation — it only verifies the standard Rust toolchain checks.
+
+---
+
 ## 📖 References
 
 - [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)
