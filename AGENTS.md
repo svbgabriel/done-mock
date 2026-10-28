@@ -51,6 +51,11 @@ src/
     ├── mod.rs       # MockStore trait
     ├── memory.rs    # In-memory implementation
     └── postgres.rs  # PostgreSQL implementation (sqlx)
+
+ui/
+├── index.html       # Main HTML entry point for the UI
+├── app.js           # Frontend JavaScript logic
+└── styles.css       # UI styles and theming
 ```
 
 ### Architectural Patterns
@@ -59,6 +64,40 @@ src/
 - **Shared state via `Arc`**: `MockServerState` groups all shared components.
 - **Cache + Index**: Mocks are cached in `Arc<RwLock<Vec<Mock>>>` and indexed in `MockIndex` for efficient lookup.
 - **Builder pattern**: The `Mock` struct uses `MockBuilder` for fluent construction.
+
+---
+
+## 🎨 UI
+
+The project includes a static admin UI served at the root path `/` by the `ui.rs` module.
+
+### Structure
+
+```
+ui/
+├── index.html       # Main HTML entry point with embedded form and table structure
+├── app.js           # Frontend JavaScript logic (mock CRUD, live feed, event handling)
+└── styles.css       # UI styles, theming, and responsive layout
+```
+
+### Key Features
+
+- **Mock Management**: Create, edit, and delete mocks via a form-based interface.
+- **Live Feed**: Real-time request/response monitoring using Server-Sent Events (SSE).
+- **Mock Types Support**: Static, Conditional, Sequence, Script, and REST CRUD mock types.
+- **Tab Navigation**: Switch between Mocks list and Live Feed views.
+
+### Conventions
+
+- **No build step**: The UI is pure HTML/CSS/JS with no framework or build tooling.
+- **Static assets**: Served directly from the `ui/` directory via Axum's static file server.
+- **API Integration**: All data operations use the admin API (`/__admin/mocks`, `/__admin/live-feed`).
+- **Responsive design**: CSS uses flexbox and grid for responsive layouts.
+- **Event-driven**: JavaScript uses event delegation for dynamic table rows and form handling.
+
+### Serving
+
+The `ui.rs` module configures Axum to serve static files from the `ui/` directory. The frontend makes API calls to the admin endpoints to manage mocks and subscribe to the live feed via SSE.
 
 ---
 
