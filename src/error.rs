@@ -45,6 +45,7 @@ impl MockServerError {
     }
 }
 
+#[cfg(feature = "postgres")]
 impl From<sqlx::Error> for MockServerError {
     fn from(err: sqlx::Error) -> Self {
         MockServerError::DatabaseError(err.to_string())

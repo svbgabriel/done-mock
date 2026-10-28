@@ -7,6 +7,7 @@ pub struct AppConfig {
     pub db_driver: String,
     pub postgres_url: String,
     pub script_timeout_ms: u64,
+    pub mocks_dir: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -16,6 +17,7 @@ impl Default for AppConfig {
             db_driver: "memory".to_string(),
             postgres_url: "postgres://mock:mock@localhost:5432/mocks".to_string(),
             script_timeout_ms: 2000,
+            mocks_dir: None,
         }
     }
 }
@@ -43,11 +45,14 @@ impl AppConfig {
             .and_then(|v| v.parse().ok())
             .unwrap_or(2000);
 
+        let mocks_dir = env::var("MOCKS_DIR").ok();
+
         Self {
             port,
             db_driver,
             postgres_url,
             script_timeout_ms,
+            mocks_dir,
         }
     }
 }
@@ -66,6 +71,7 @@ mod tests {
             "postgres://mock:mock@localhost:5432/mocks"
         );
         assert_eq!(config.script_timeout_ms, 2000);
+        assert_eq!(config.mocks_dir, None);
     }
 
     #[test]
@@ -76,6 +82,7 @@ mod tests {
         assert_eq!(cloned.db_driver, config.db_driver);
         assert_eq!(cloned.postgres_url, config.postgres_url);
         assert_eq!(cloned.script_timeout_ms, config.script_timeout_ms);
+        assert_eq!(cloned.mocks_dir, config.mocks_dir);
     }
 
     #[test]
@@ -101,5 +108,36 @@ mod tests {
         let debug_str = format!("{:?}", config);
         assert!(debug_str.contains("AppConfig"));
         assert!(debug_str.contains("8000"));
+    }
+
+    #[test]
+    fn test_mocks_dir_env_var() {
+        // When MOCKS_DIR is not set, it should be None
+        env::remove_var("MOCKS_DIR");
+        let config = AppConfig::load();
+        assert_eq!(config.mocks_dir, None);
+
+        // When MOCKS_DIR is set, it should be Some
+        env::set_var("MOCKS_DIR", "/tmp/test-mocks");
+        let config = AppConfig::load();
+        assert_eq!(config.mocks_dir, Some("/tmp/test-mocks".to_string()));
+
+        // Clean up
+        env::remove_var("MOCKS_DIR");
+    }
+
+    #[test]
+    fn test_mocks_dir_serialization() {
+        let config = AppConfig {
+            mocks_dir: Some("/app/mocks".to_string()),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("\"mocks_dir\":\"/app/mocks\""));
+
+        // None mocks_dir should serialize as null
+        let config_none = AppConfig::default();
+        let json_none = serde_json::to_string(&config_none).unwrap();
+        assert!(json_none.contains("\"mocks_dir\":null"));
     }
 }

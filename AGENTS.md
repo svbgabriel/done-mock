@@ -45,12 +45,12 @@ src/
 ├── mock_server.rs   # Axum router and MockServerState
 ├── model.rs         # Data models (Mock, MockResponse, etc.)
 ├── responder.rs     # Response logic (SequenceState, dispatch)
-├── script.rs        # JavaScript engine (QuickJS/rquickjs)
-├── ui.rs            # Static file server for the UI
+├── script.rs        # JavaScript engine (QuickJS/rquickjs) [feature: script]
+├── ui.rs            # Static file server for the UI [feature: ui]
 └── store/
     ├── mod.rs       # MockStore trait
     ├── memory.rs    # In-memory implementation
-    └── postgres.rs  # PostgreSQL implementation (sqlx)
+    └── postgres.rs  # PostgreSQL implementation (sqlx) [feature: postgres]
 
 ui/
 ├── index.html       # Main HTML entry point for the UI
@@ -67,9 +67,9 @@ ui/
 
 ---
 
-## 🎨 UI
+## 🎨 UI (Optional)
 
-The project includes a static admin UI served at the root path `/` by the `ui.rs` module.
+The project includes a static admin UI served at the root path `/` by the `ui.rs` module. This module is optional and controlled by the `ui` Cargo feature (enabled by default). When disabled, the UI routes are removed and static assets are not embedded in the binary.
 
 ### Structure
 
@@ -251,17 +251,36 @@ info!(mock_id = %mock.id, "Mock created successfully");
 
 ### Main Dependencies
 
-| Crate | Version | Usage |
-|-------|---------|-------|
-| `tokio` | 1.38 | Async runtime (selective features) |
-| `axum` | 0.8.9 | Web framework |
-| `serde` | 1.0 | Serialization/deserialization |
-| `sqlx` | 0.9.0 | Database with type-safe queries |
-| `rquickjs` | 0.14 | JavaScript engine for scripts |
-| `thiserror` | 2.0 | Custom error enum derivation |
-| `tracing` | 0.1 | Structured logging |
-| `uuid` | 1.8 | Unique identifiers |
-| `chrono` | 0.4 | Dates and timestamps |
+| Crate | Version | Optional | Usage |
+|-------|---------|----------|-------|
+| `tokio` | 1.38 | No | Async runtime (selective features) |
+| `axum` | 0.8.9 | No | Web framework |
+| `serde` | 1.0 | No | Serialization/deserialization |
+| `sqlx` | 0.9.0 | Yes (`postgres` feature) | Database with type-safe queries |
+| `rquickjs` | 0.14 | Yes (`script` feature) | JavaScript engine for scripts |
+| `thiserror` | 2.0 | No | Custom error enum derivation |
+| `tracing` | 0.1 | No | Structured logging |
+| `uuid` | 1.8 | No | Unique identifiers |
+| `chrono` | 0.4 | No | Dates and timestamps |
+
+### Cargo Features
+
+The project uses Cargo features to make optional components conditional at compile time:
+
+| Feature | Default | Gates |
+|---------|---------|-------|
+| `postgres` | ✅ | `sqlx` dependency + `src/store/postgres.rs` |
+| `script` | ✅ | `rquickjs` dependency + `src/script.rs` + script mock handler |
+| `ui` | ✅ | `src/ui.rs` + UI routes and static assets |
+
+All features are enabled by default. Key implications:
+
+- **`--no-default-features`**: Produces a minimal binary with only the in-memory store, no script engine, and no UI.
+- **`--features ui`**: Adds only the UI module and embedded static assets.
+- **`--features script`**: Adds the QuickJS engine for Script mocks.
+- **`--features postgres`**: Adds PostgreSQL support via `sqlx`.
+
+The Docker image builds with all default features. A minimal image can be built by passing `--no-default-features` to the `cargo build` command in the Dockerfile.
 
 ### Dependency Management
 
@@ -280,13 +299,20 @@ info!(mock_id = %mock.id, "Mock created successfully");
 - The final image should be minimalist (distroless).
 - Run `docker build -t done-mock .` locally to verify.
 
+### Dockerfile.minimal
+
+- `Dockerfile.minimal` produces a lightweight image with `--no-default-features` (no PostgreSQL, no script engine, no UI).
+- This image is intended for use with testcontainers, where only the in-memory store is needed.
+- Build locally with: `docker build -f Dockerfile.minimal -t done-mock-minimal .`
+
 ### GitHub Actions
 
-- Workflow in `.github/workflows/rust.yml` runs:
-  1. `cargo fmt --check`
-  2. `cargo clippy -- -D warnings`
-  3. `cargo test`
-- Add new jobs only when necessary (e.g., Docker build).
+- CI workflow in `.github/workflows/rust.yml` runs three jobs:
+  1. **verify** — `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`
+  2. **docker-build** — builds the full Docker image to verify the musl cross-compilation pipeline
+  3. **docker-build-minimal** — builds the minimal Docker image (no default features) for testcontainers
+- Publish workflow in `.github/workflows/docker-publish.yml` builds and pushes both the full and minimal images to GHCR on version tags.
+- Add new jobs only when necessary.
 
 ---
 
@@ -429,6 +455,20 @@ Build the image locally with:
 docker build -t done-mock .
 ```
 
+### Dockerfile.minimal
+
+The `Dockerfile.minimal` produces a **lightweight image** compiled with `--no-default-features`, excluding PostgreSQL, script engine, and UI components. This image is intended for use with **testcontainers**, where only the in-memory store is needed.
+
+- Uses the same musl-cross builder stage as the main Dockerfile.
+- Builds with `cargo build --release --locked --no-default-features`.
+- Does not include the `ui/` directory in the final image (no static assets needed).
+
+Build the minimal image locally with:
+
+```bash
+docker build -f Dockerfile.minimal -t done-mock-minimal .
+```
+
 ### docker-compose.yml
 
 The `docker-compose.yml` file builds the image from the `Dockerfile` automatically — no manual image tag is required. It also includes a PostgreSQL service for the database backend.
@@ -441,11 +481,16 @@ docker compose up --build
 
 The CI workflow (`.github/workflows/rust.yml`) runs on every push and pull request to `main`:
 
-1. `cargo fmt --check` — validates formatting
-2. `cargo clippy -- -D warnings` — validates lints
-3. `cargo test` — runs all tests
+1. **verify** job:
+   - `cargo fmt --check` — validates formatting
+   - `cargo clippy -- -D warnings` — validates lints
+   - `cargo test` — runs all tests
+2. **docker-build** job — builds the full Docker image to verify the musl cross-compilation pipeline end-to-end
+3. **docker-build-minimal** job — builds the minimal Docker image (`--no-default-features`) for testcontainers
 
-The CI does not target the musl cross-compilation — it only verifies the standard Rust toolchain checks.
+The verify job does not target the musl cross-compilation — it only checks the standard Rust toolchain. The docker-build jobs validate that both Dockerfiles produce working images.
+
+The publish workflow (`.github/workflows/docker-publish.yml`) runs on version tags (`*.*.*`) and manual dispatch. It builds and pushes both the full Docker image and the minimal image (`-minimal` suffix) to GitHub Container Registry (GHCR).
 
 ---
 

@@ -8,6 +8,11 @@ services:
       PORT: "8000"
       DB_DRIVER: "postgres"
       POSTGRES_URL: "postgres://mock:mock@postgres:5432/mocks"
+      # Uncomment to load mocks from a directory at startup:
+      # MOCKS_DIR: "/app/mocks"
+    # Uncomment to mount a local mocks directory:
+    # volumes:
+    #   - ./examples/mocks:/app/mocks:ro
     depends_on:
       postgres:
         condition: service_healthy

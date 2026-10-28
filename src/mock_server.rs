@@ -2,19 +2,24 @@ use crate::admin::create_admin_router;
 use crate::live_feed::LiveFeed;
 use crate::matching::{find_best_match_indexed, MockIndex};
 use crate::model::{default_iso_now, FeedEntry, Mock, MockRequest, MockType};
+#[cfg(feature = "script")]
+use crate::responder::handle_script_mock;
 use crate::responder::{
-    handle_conditional_mock, handle_rest_mock, handle_script_mock, handle_sequence_mock,
-    handle_static_mock, SequenceState,
+    handle_conditional_mock, handle_rest_mock, handle_sequence_mock, handle_static_mock,
+    SequenceState,
 };
+#[cfg(feature = "script")]
 use crate::script::ScriptEngine;
 use crate::store::MockStore;
+#[cfg(feature = "ui")]
 use crate::ui;
+#[cfg(feature = "ui")]
+use axum::routing::get;
 use axum::{
     body::Bytes,
     extract::{Request, State},
     http::{self, StatusCode},
     response::{IntoResponse, Response},
-    routing::get,
     Json, Router,
 };
 use serde_json::json;
@@ -29,6 +34,7 @@ pub struct MockServerState {
     pub mock_cache: Arc<tokio::sync::RwLock<Vec<crate::model::Mock>>>,
     pub mock_index: Arc<tokio::sync::RwLock<MockIndex>>,
     pub sequence_state: SequenceState,
+    #[cfg(feature = "script")]
     pub script_engine: Option<ScriptEngine>,
     pub live_feed: LiveFeed,
 }
@@ -45,18 +51,27 @@ impl MockServerState {
 }
 
 pub fn create_app_router(state: MockServerState) -> Router {
-    Router::new()
-        .merge(create_admin_router())
-        .route("/", get(ui::redirect_to_ui))
-        .route("/ui", get(ui::serve_index))
-        .route("/ui/", get(ui::serve_index))
-        .route("/ui/index.html", get(ui::serve_index))
-        .route("/ui/app.js", get(ui::serve_app_js))
-        .route("/ui/styles.css", get(ui::serve_styles_css))
-        .route("/favicon.ico", get(ui::serve_favicon_ico))
-        .route("/favicon.svg", get(ui::serve_favicon_svg))
-        .fallback(handle_mock_request)
-        .with_state(state)
+    #[cfg(feature = "ui")]
+    {
+        let mut router = Router::new().merge(create_admin_router());
+        router = router
+            .route("/", get(ui::redirect_to_ui))
+            .route("/ui", get(ui::serve_index))
+            .route("/ui/", get(ui::serve_index))
+            .route("/ui/index.html", get(ui::serve_index))
+            .route("/ui/app.js", get(ui::serve_app_js))
+            .route("/ui/styles.css", get(ui::serve_styles_css))
+            .route("/favicon.ico", get(ui::serve_favicon_ico))
+            .route("/favicon.svg", get(ui::serve_favicon_svg));
+        router.fallback(handle_mock_request).with_state(state)
+    }
+    #[cfg(not(feature = "ui"))]
+    {
+        Router::new()
+            .merge(create_admin_router())
+            .fallback(handle_mock_request)
+            .with_state(state)
+    }
 }
 
 /// Parse the incoming HTTP request into a MockRequest.
@@ -109,7 +124,17 @@ async fn dispatch_mock_response(
         MockType::Static => handle_static_mock(mock),
         MockType::Conditional => handle_conditional_mock(mock, mock_req),
         MockType::Sequence => handle_sequence_mock(mock, &state.sequence_state),
+        #[cfg(feature = "script")]
         MockType::Script => handle_script_mock(mock, mock_req, &state.script_engine).await,
+        #[cfg(not(feature = "script"))]
+        MockType::Script => {
+            let err_msg = "Script mock type is not available (script feature disabled)";
+            axum::http::Response::builder()
+                .status(axum::http::StatusCode::NOT_IMPLEMENTED)
+                .header("content-type", "text/plain")
+                .body(axum::body::Body::from(err_msg))
+                .unwrap()
+        }
         MockType::Rest => {
             // REST mocks need fresh state from store, not from cache
             let fresh_mock = state

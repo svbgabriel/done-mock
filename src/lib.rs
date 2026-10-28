@@ -6,6 +6,8 @@ pub mod matching;
 pub mod mock_server;
 pub mod model;
 pub mod responder;
+#[cfg(feature = "script")]
 pub mod script;
 pub mod store;
+#[cfg(feature = "ui")]
 pub mod ui;

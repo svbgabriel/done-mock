@@ -15,6 +15,29 @@ A customizable mock HTTP server built with Rust, Axum, and `rquickjs` (QuickJS).
 - **Persistence**: Mocks are stored in-memory (default) or PostgreSQL.
 - **Live Feed SSE**: Real-time streaming of request history and events at `GET /__admin/livefeed`.
 
+### Cargo Features
+
+The project supports optional Cargo features that control which components are compiled:
+
+| Feature | Default | Description |
+|---------|---------|-------------|
+| `postgres` | ✅ | PostgreSQL persistence via `sqlx`. Disabling removes the database dependency entirely. |
+| `script` | ✅ | JavaScript engine via `rquickjs` for Script mocks. Disabling removes QuickJS from the binary. |
+| `ui` | ✅ | Static admin UI served at `/ui`. Disabling removes embedded HTML/CSS/JS assets. |
+
+All features are enabled by default. Build a minimal binary with:
+
+```bash
+cargo build --release --no-default-features
+```
+
+Or enable individual features:
+
+```bash
+cargo build --release --no-default-features --features ui
+cargo build --release --no-default-features --features postgres,ui
+```
+
 ## Getting Started
 
 ### Prerequisites
@@ -36,6 +59,7 @@ The server will start on port 8000 by default. Access the UI at `http://localhos
 - `POSTGRES_URL`: PostgreSQL connection URL. Used only if `DB_DRIVER=postgres`.
 - `SCRIPT_TIMEOUT_MS`: Script execution timeout in milliseconds (default: 2000).
 - `POOL_MAX_CONNECTIONS`: Maximum number of PostgreSQL connections in the pool (default: 10).
+- `MOCKS_DIR`: Path to a directory of `.json` mock files to load at startup. Each file should contain a single mock definition. Invalid files are skipped with a warning.
 
 ### Docker
 
@@ -54,12 +78,36 @@ docker build -t done-mock .
 docker run -p 8000:8000 -e DB_DRIVER=memory done-mock
 ```
 
+### Seeding Mocks at Startup
+
+Load mocks from a directory of JSON files by setting the `MOCKS_DIR` environment variable:
+
+```bash
+MOCKS_DIR=./examples/mocks cargo run
+```
+
+With Docker, mount a directory containing mock JSON files:
+
+```bash
+docker run -p 8000:8000 -v ./examples/mocks:/app/mocks:ro -e MOCKS_DIR=/app/mocks done-mock
+```
+
+Example mock files are available in the `examples/mocks/` directory.
+
+### Bulk Admin API
+
+You can also load mocks programmatically after the server starts:
+
+- **`POST /__admin/mocks/bulk`**: Accepts a JSON array of mock definitions and creates them all. Returns created mocks and any validation errors.
+- **`POST /__admin/mocks/reset`**: Deletes all mocks and resets sequence counters. Useful for test isolation.
+
 ## Development
 
 ### Build and Run
 
-- `cargo run`: Start the server.
-- `cargo test`: Run all tests.
+- `cargo run`: Start the server with all features enabled.
+- `cargo run --no-default-features`: Start with only the in-memory store (no PostgreSQL, no scripts, no UI).
+- `cargo test`: Run all tests (with default features).
 
 ### Test
 

@@ -1,0 +1,32 @@
+{
+  "name": "Conditional Auth Login",
+  "method": "POST",
+  "path": "/auth/login",
+  "type": "conditional",
+  "conditions": [
+    {
+      "source": "header",
+      "key": "X-Role",
+      "op": "equals",
+      "value": "admin",
+      "response": {
+        "status": 200,
+        "body": "{\"message\": \"Welcome Admin\"}"
+      }
+    },
+    {
+      "source": "body",
+      "key": "username",
+      "op": "equals",
+      "value": "guest",
+      "response": {
+        "status": 200,
+        "body": "{\"message\": \"Welcome Guest\"}"
+      }
+    }
+  ],
+  "elseResponse": {
+    "status": 403,
+    "body": "{\"message\": \"Access Denied\"}"
+  }
+}

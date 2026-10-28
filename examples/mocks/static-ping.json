@@ -1,0 +1,11 @@
+{
+  "name": "Static Ping",
+  "method": "GET",
+  "path": "/api/ping",
+  "type": "static",
+  "response": {
+    "status": 200,
+    "body": "{\"pong\": true}",
+    "contentType": "application/json"
+  }
+}
