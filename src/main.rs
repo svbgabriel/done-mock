@@ -60,9 +60,18 @@ async fn main() -> Result<(), MockServerError> {
         .map_err(|e| MockServerError::DatabaseError(format!("Failed to bind address: {}", e)))?;
 
     info!("Mock server listening on http://{}", addr);
+
+    // Graceful shutdown on SIGINT (Ctrl+C) or SIGTERM (container stop)
+    let shutdown_signal = async {
+        // Wait for Ctrl+C (SIGINT)
+        let _ = tokio::signal::ctrl_c().await;
+    };
+
     axum::serve(listener, app_router)
+        .with_graceful_shutdown(shutdown_signal)
         .await
         .map_err(|e| MockServerError::DatabaseError(format!("Server error: {}", e)))?;
 
+    info!("Server stopped");
     Ok(())
 }
