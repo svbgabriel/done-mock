@@ -15,6 +15,29 @@ A customizable mock HTTP server built with Rust, Axum, and `rquickjs` (QuickJS).
 - **Persistence**: Mocks are stored in-memory (default) or PostgreSQL.
 - **Live Feed SSE**: Real-time streaming of request history and events at `GET /__admin/livefeed`.
 
+### Cargo Features
+
+The project supports optional Cargo features that control which components are compiled:
+
+| Feature | Default | Description |
+|---------|---------|-------------|
+| `postgres` | ✅ | PostgreSQL persistence via `sqlx`. Disabling removes the database dependency entirely. |
+| `script` | ✅ | JavaScript engine via `rquickjs` for Script mocks. Disabling removes QuickJS from the binary. |
+| `ui` | ✅ | Static admin UI served at `/ui`. Disabling removes embedded HTML/CSS/JS assets. |
+
+All features are enabled by default. Build a minimal binary with:
+
+```bash
+cargo build --release --no-default-features
+```
+
+Or enable individual features:
+
+```bash
+cargo build --release --no-default-features --features ui
+cargo build --release --no-default-features --features postgres,ui
+```
+
 ## Getting Started
 
 ### Prerequisites
@@ -58,8 +81,9 @@ docker run -p 8000:8000 -e DB_DRIVER=memory done-mock
 
 ### Build and Run
 
-- `cargo run`: Start the server.
-- `cargo test`: Run all tests.
+- `cargo run`: Start the server with all features enabled.
+- `cargo run --no-default-features`: Start with only the in-memory store (no PostgreSQL, no scripts, no UI).
+- `cargo test`: Run all tests (with default features).
 
 ### Test
 

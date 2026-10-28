@@ -1,4 +1,5 @@
 use crate::model::{ConditionOp, ConditionSource, Mock, MockRequest, MockResponse, SequenceMode};
+#[cfg(feature = "script")]
 use crate::script::ScriptEngine;
 use crate::store::MockStore;
 use axum::{
@@ -166,6 +167,7 @@ pub fn handle_sequence_mock(mock: &Mock, sequence_state: &SequenceState) -> Resp
     build_mock_response(&resp)
 }
 
+#[cfg(feature = "script")]
 pub async fn handle_script_mock(
     mock: &Mock,
     req: &MockRequest,

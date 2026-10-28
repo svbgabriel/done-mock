@@ -1,3 +1,7 @@
+#[cfg(feature = "script")]
+use done_mock::script::ScriptEngine;
+#[cfg(feature = "postgres")]
+use done_mock::store::postgres::PostgresMockStore;
 use done_mock::{
     config::AppConfig,
     error::MockServerError,
@@ -5,11 +9,11 @@ use done_mock::{
     matching::MockIndex,
     mock_server::{create_app_router, MockServerState},
     responder::SequenceState,
-    script::ScriptEngine,
-    store::{memory::InMemoryMockStore, postgres::PostgresMockStore, MockStore},
+    store::{memory::InMemoryMockStore, MockStore},
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
+#[cfg(feature = "script")]
 use std::time::Duration;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -27,16 +31,27 @@ async fn main() -> Result<(), MockServerError> {
     let config = AppConfig::load();
     info!("Starting mock server with config: {:?}", config);
 
-    let store: Arc<dyn MockStore> = if config.db_driver == "postgres" {
-        info!("Using PostgreSQL store driver: {}", config.postgres_url);
-        Arc::new(PostgresMockStore::new(&config.postgres_url).await?)
-    } else {
-        info!("Using in-memory store driver");
-        Arc::new(InMemoryMockStore::new())
+    let store: Arc<dyn MockStore> = {
+        #[cfg(feature = "postgres")]
+        if config.db_driver == "postgres" {
+            info!("Using PostgreSQL store driver: {}", config.postgres_url);
+            Arc::new(PostgresMockStore::new(&config.postgres_url).await?)
+        } else {
+            info!("Using in-memory store driver");
+            Arc::new(InMemoryMockStore::new())
+        }
+        #[cfg(not(feature = "postgres"))]
+        {
+            info!("Using in-memory store driver (postgres feature disabled)");
+            Arc::new(InMemoryMockStore::new())
+        }
     };
 
     let sequence_state = SequenceState::new();
-    let script_engine = ScriptEngine::new(Duration::from_millis(config.script_timeout_ms));
+    #[cfg(feature = "script")]
+    let script_engine = Some(ScriptEngine::new(Duration::from_millis(
+        config.script_timeout_ms,
+    )));
     let live_feed = LiveFeed::new();
 
     // Initialize mock cache and index from store
@@ -49,7 +64,8 @@ async fn main() -> Result<(), MockServerError> {
         mock_cache,
         mock_index,
         sequence_state,
-        script_engine: Some(script_engine),
+        #[cfg(feature = "script")]
+        script_engine,
         live_feed,
     };
 
