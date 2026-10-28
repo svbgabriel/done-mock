@@ -2,14 +2,14 @@ use crate::error::MockServerError;
 use crate::mock_server::MockServerState;
 use crate::model::{Mock, MockType, PartialMock};
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::{
-        sse::{Event, KeepAlive, Sse},
         IntoResponse,
+        sse::{Event, KeepAlive, Sse},
     },
     routing::{get, post},
-    Json, Router,
 };
 use futures_util::stream::{self, Stream, StreamExt};
 use serde_json::json;
@@ -104,14 +104,14 @@ async fn update_mock(
         }
     };
 
-    if let Some(path) = &partial.path {
-        if path.starts_with("/__admin") {
-            return (
+    if let Some(path) = &partial.path
+        && path.starts_with("/__admin")
+    {
+        return (
                 StatusCode::BAD_REQUEST,
                 Json(json!({ "error": "Validation Error", "message": "Field 'path' cannot start with '/__admin'" })),
             )
                 .into_response();
-        }
     }
 
     state.sequence_state.reset(&id);
@@ -148,14 +148,14 @@ async fn reset_mock(
 ) -> impl IntoResponse {
     state.sequence_state.reset(&id);
 
-    if let Ok(Some(mock)) = state.store.get(&id).await {
-        if mock.mock_type == MockType::Rest {
-            let initial = mock.rest_initial_state.clone().unwrap_or_default();
-            let _ = state
-                .store
-                .update_state(&id, serde_json::to_value(&initial).unwrap())
-                .await;
-        }
+    if let Ok(Some(mock)) = state.store.get(&id).await
+        && mock.mock_type == MockType::Rest
+    {
+        let initial = mock.rest_initial_state.clone().unwrap_or_default();
+        let _ = state
+            .store
+            .update_state(&id, serde_json::to_value(&initial).unwrap())
+            .await;
     }
 
     (StatusCode::OK, Json(json!({ "success": true })))

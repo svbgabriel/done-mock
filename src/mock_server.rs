@@ -1,12 +1,12 @@
 use crate::admin::create_admin_router;
 use crate::live_feed::LiveFeed;
-use crate::matching::{find_best_match_indexed, MockIndex};
-use crate::model::{default_iso_now, FeedEntry, Mock, MockRequest, MockType};
+use crate::matching::{MockIndex, find_best_match_indexed};
+use crate::model::{FeedEntry, Mock, MockRequest, MockType, default_iso_now};
 #[cfg(feature = "script")]
 use crate::responder::handle_script_mock;
 use crate::responder::{
-    handle_conditional_mock, handle_rest_mock, handle_sequence_mock, handle_static_mock,
-    SequenceState,
+    SequenceState, handle_conditional_mock, handle_rest_mock, handle_sequence_mock,
+    handle_static_mock,
 };
 #[cfg(feature = "script")]
 use crate::script::ScriptEngine;
@@ -16,11 +16,11 @@ use crate::ui;
 #[cfg(feature = "ui")]
 use axum::routing::get;
 use axum::{
+    Json, Router,
     body::Bytes,
     extract::{Request, State},
     http::{self, StatusCode},
     response::{IntoResponse, Response},
-    Json, Router,
 };
 use serde_json::json;
 use std::collections::HashMap;
@@ -188,7 +188,7 @@ pub async fn handle_mock_request(State(state): State<MockServerState>, req: Requ
                 StatusCode::BAD_REQUEST,
                 Json(json!({ "error": "Bad Request", "message": "Failed to read request body" })),
             )
-                .into_response()
+                .into_response();
         }
     };
 

@@ -269,7 +269,7 @@ pub async fn handle_rest_mock(
                     Some(i) => {
                         let mut existing = items[i].clone();
                         if let (
-                            serde_json::Value::Object(ref mut ex_map),
+                            serde_json::Value::Object(ex_map),
                             serde_json::Value::Object(patch_map),
                         ) = (&mut existing, body_json)
                         {
@@ -368,13 +368,13 @@ pub async fn handle_rest_mock(
 }
 
 fn item_matches_id(item: &serde_json::Value, id_field: &str, target_id: &str) -> bool {
-    if let serde_json::Value::Object(map) = item {
-        if let Some(val) = map.get(id_field) {
-            if let Some(s) = val.as_str() {
-                return s == target_id;
-            } else if val.is_number() {
-                return val == target_id;
-            }
+    if let serde_json::Value::Object(map) = item
+        && let Some(val) = map.get(id_field)
+    {
+        if let Some(s) = val.as_str() {
+            return s == target_id;
+        } else if val.is_number() {
+            return val == target_id;
         }
     }
     false

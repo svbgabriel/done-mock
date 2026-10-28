@@ -83,14 +83,14 @@ pub fn match_path_pattern(
         let mut base_pat_segments = pat_segments.clone();
         let mut id_param_name = "id".to_string();
 
-        if let Some(last) = base_pat_segments.last() {
-            if last.starts_with(':') {
-                id_param_name = last
-                    .trim_start_matches(':')
-                    .trim_end_matches('?')
-                    .to_string();
-                base_pat_segments.pop();
-            }
+        if let Some(last) = base_pat_segments.last()
+            && last.starts_with(':')
+        {
+            id_param_name = last
+                .trim_start_matches(':')
+                .trim_end_matches('?')
+                .to_string();
+            base_pat_segments.pop();
         }
 
         // Case A: Path matches base segments exactly (Collection)
@@ -430,12 +430,14 @@ mod tests {
 
     #[test]
     fn test_find_best_match_no_match() {
-        let mocks = vec![Mock::builder()
-            .id("1")
-            .name("Mock")
-            .method("GET")
-            .path("/api/other")
-            .build()];
+        let mocks = vec![
+            Mock::builder()
+                .id("1")
+                .name("Mock")
+                .method("GET")
+                .path("/api/other")
+                .build(),
+        ];
         let req = MockRequest {
             method: "GET".to_string(),
             path: "/api/test".to_string(),
@@ -487,12 +489,14 @@ mod tests {
 
     #[test]
     fn test_find_best_match_returns_path_params() {
-        let mocks = vec![Mock::builder()
-            .id("1")
-            .name("Mock")
-            .method("GET")
-            .path("/users/:id")
-            .build()];
+        let mocks = vec![
+            Mock::builder()
+                .id("1")
+                .name("Mock")
+                .method("GET")
+                .path("/users/:id")
+                .build(),
+        ];
         let req = MockRequest {
             method: "GET".to_string(),
             path: "/users/42".to_string(),

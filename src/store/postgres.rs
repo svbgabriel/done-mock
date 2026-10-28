@@ -1,11 +1,11 @@
 use super::MockStore;
 use crate::error::MockServerError;
 use crate::model::{
-    default_iso_now, Condition, Mock, MockResponse, MockType, PartialMock, SequenceMode,
+    Condition, Mock, MockResponse, MockType, PartialMock, SequenceMode, default_iso_now,
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use sqlx::{postgres::PgPoolOptions, PgPool, Row};
+use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

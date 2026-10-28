@@ -113,17 +113,23 @@ mod tests {
     #[test]
     fn test_mocks_dir_env_var() {
         // When MOCKS_DIR is not set, it should be None
-        env::remove_var("MOCKS_DIR");
+        unsafe {
+            env::remove_var("MOCKS_DIR");
+        }
         let config = AppConfig::load();
         assert_eq!(config.mocks_dir, None);
 
         // When MOCKS_DIR is set, it should be Some
-        env::set_var("MOCKS_DIR", "/tmp/test-mocks");
+        unsafe {
+            env::set_var("MOCKS_DIR", "/tmp/test-mocks");
+        }
         let config = AppConfig::load();
         assert_eq!(config.mocks_dir, Some("/tmp/test-mocks".to_string()));
 
         // Clean up
-        env::remove_var("MOCKS_DIR");
+        unsafe {
+            env::remove_var("MOCKS_DIR");
+        }
     }
 
     #[test]
