@@ -894,3 +894,147 @@ async fn test_404_not_found_standard_payload() {
         "No mock matched for GET /non-existent/route"
     );
 }
+
+#[tokio::test]
+async fn test_bulk_create_mocks() {
+    let base_url = spawn_test_server().await;
+    let client = Client::new();
+
+    // Create multiple mocks at once
+    let mocks = json!([
+        {
+            "name": "Bulk Mock 1",
+            "method": "GET",
+            "path": "/bulk/1",
+            "type": "static",
+            "response": { "status": 200, "body": "first" }
+        },
+        {
+            "name": "Bulk Mock 2",
+            "method": "POST",
+            "path": "/bulk/2",
+            "type": "static",
+            "response": { "status": 201, "body": "second" }
+        }
+    ]);
+
+    let res = client
+        .post(format!("{}/__admin/mocks/bulk", base_url))
+        .json(&mocks)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 201);
+    let body: serde_json::Value = res.json().await.unwrap();
+    assert_eq!(body["created"].as_array().unwrap().len(), 2);
+
+    // Verify mocks are accessible
+    let get1 = client
+        .get(format!("{}/bulk/1", base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(get1.status(), 200);
+    assert_eq!(get1.text().await.unwrap(), "first");
+
+    let post2 = client
+        .post(format!("{}/bulk/2", base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(post2.status(), 201);
+    assert_eq!(post2.text().await.unwrap(), "second");
+}
+
+#[tokio::test]
+async fn test_bulk_create_mocks_with_validation_errors() {
+    let base_url = spawn_test_server().await;
+    let client = Client::new();
+
+    // Mix of valid and invalid mocks
+    let mocks = json!([
+        {
+            "name": "Valid Mock",
+            "method": "GET",
+            "path": "/valid",
+            "type": "static",
+            "response": { "status": 200, "body": "ok" }
+        },
+        {
+            "name": "",
+            "method": "GET",
+            "path": "/invalid",
+            "type": "static",
+            "response": { "status": 200, "body": "fail" }
+        }
+    ]);
+
+    let res = client
+        .post(format!("{}/__admin/mocks/bulk", base_url))
+        .json(&mocks)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 201);
+    let body: serde_json::Value = res.json().await.unwrap();
+    assert_eq!(body["created"].as_array().unwrap().len(), 1);
+    assert_eq!(body["errors"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn test_reset_all_mocks() {
+    let base_url = spawn_test_server().await;
+    let client = Client::new();
+
+    // Create a mock first
+    let mock = Mock::builder()
+        .id("")
+        .name("To Delete")
+        .method("GET")
+        .path("/to-delete")
+        .response(MockResponse {
+            status: 200,
+            body: Some("delete me".to_string()),
+            ..Default::default()
+        })
+        .created_at("")
+        .updated_at("")
+        .build();
+
+    client
+        .post(format!("{}/__admin/mocks", base_url))
+        .json(&mock)
+        .send()
+        .await
+        .unwrap();
+
+    // Verify it exists
+    let list_res = client
+        .get(format!("{}/__admin/mocks", base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(list_res.status(), 200);
+    let list_body: Vec<Mock> = list_res.json().await.unwrap();
+    assert_eq!(list_body.len(), 1);
+
+    // Reset all mocks
+    let reset_res = client
+        .post(format!("{}/__admin/mocks/reset", base_url))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(reset_res.status(), 200);
+    let reset_body: serde_json::Value = reset_res.json().await.unwrap();
+    assert_eq!(reset_body["success"], true);
+    assert_eq!(reset_body["deleted"], 1);
+
+    // Verify all mocks are deleted
+    let list_res2 = client
+        .get(format!("{}/__admin/mocks", base_url))
+        .send()
+        .await
+        .unwrap();
+    let list_body2: Vec<Mock> = list_res2.json().await.unwrap();
+    assert_eq!(list_body2.len(), 0);
+}

@@ -8,14 +8,16 @@ use done_mock::{
     live_feed::LiveFeed,
     matching::MockIndex,
     mock_server::{create_app_router, MockServerState},
+    model::Mock,
     responder::SequenceState,
     store::{memory::InMemoryMockStore, MockStore},
 };
 use std::net::SocketAddr;
+use std::path::Path;
 use std::sync::Arc;
 #[cfg(feature = "script")]
 use std::time::Duration;
-use tracing::info;
+use tracing::{debug, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -46,6 +48,14 @@ async fn main() -> Result<(), MockServerError> {
             Arc::new(InMemoryMockStore::new())
         }
     };
+
+    // Initialize the store (creates tables for PostgreSQL, no-op for in-memory)
+    store.init().await?;
+
+    // Seed mocks from directory if configured
+    if let Some(ref mocks_dir) = config.mocks_dir {
+        seed_mocks_from_directory(&*store, mocks_dir).await;
+    }
 
     let sequence_state = SequenceState::new();
     #[cfg(feature = "script")]
@@ -90,4 +100,98 @@ async fn main() -> Result<(), MockServerError> {
 
     info!("Server stopped");
     Ok(())
+}
+
+/// Loads all `.json` files from the given directory and creates them as mocks.
+///
+/// Skips files that fail to parse or validate, logging a warning for each.
+async fn seed_mocks_from_directory(store: &dyn MockStore, dir: &str) {
+    let path = Path::new(dir);
+    if !path.exists() {
+        warn!(
+            mocks_dir = dir,
+            "Mocks directory does not exist, skipping seed loading"
+        );
+        return;
+    }
+
+    if !path.is_dir() {
+        warn!(
+            mocks_dir = dir,
+            "Mocks path is not a directory, skipping seed loading"
+        );
+        return;
+    }
+
+    let mut loaded = 0;
+    let mut skipped = 0;
+
+    let entries = match std::fs::read_dir(path) {
+        Ok(entries) => entries,
+        Err(e) => {
+            warn!(error = %e, "Failed to read mocks directory, skipping seed loading");
+            return;
+        }
+    };
+
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                warn!(error = %e, "Failed to read directory entry, skipping");
+                continue;
+            }
+        };
+
+        let file_path = entry.path();
+        if file_path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+            continue;
+        }
+
+        let file_name = file_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown");
+
+        let content = match std::fs::read_to_string(&file_path) {
+            Ok(c) => c,
+            Err(e) => {
+                warn!(file = file_name, error = %e, "Failed to read mock file, skipping");
+                skipped += 1;
+                continue;
+            }
+        };
+
+        let mock: Mock = match serde_json::from_str(&content) {
+            Ok(m) => m,
+            Err(e) => {
+                warn!(file = file_name, error = %e, "Failed to parse mock JSON, skipping");
+                skipped += 1;
+                continue;
+            }
+        };
+
+        // Validate the mock
+        if let Err(e) = mock.validate() {
+            warn!(file = file_name, error = %e, "Mock validation failed, skipping");
+            skipped += 1;
+            continue;
+        }
+
+        debug!(file = file_name, mock_id = %mock.id, "Creating mock from seed file");
+        match store.create(mock).await {
+            Ok(_) => loaded += 1,
+            Err(e) => {
+                warn!(file = file_name, error = %e, "Failed to create mock, skipping");
+                skipped += 1;
+            }
+        }
+    }
+
+    info!(
+        loaded = loaded,
+        skipped = skipped,
+        "Seed loading completed from {}",
+        dir
+    );
 }

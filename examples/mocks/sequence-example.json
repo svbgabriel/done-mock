@@ -1,0 +1,11 @@
+{
+  "name": "Sequence Responses",
+  "method": "GET",
+  "path": "/api/sequence",
+  "type": "sequence",
+  "sequence": [
+    {"status": 200, "body": "first call"},
+    {"status": 200, "body": "second call"},
+    {"status": 503, "body": "service unavailable"}
+  ]
+}

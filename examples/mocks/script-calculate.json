@@ -1,0 +1,8 @@
+{
+  "name": "Script Calculator",
+  "method": "POST",
+  "path": "/api/calculate/:operation",
+  "type": "script",
+  "script": "const op = context.pathParams.operation;\nconst body = JSON.parse(context.body || '{}');\nconst a = body.a || 0;\nconst b = body.b || 0;\nlet result;\nswitch (op) {\n  case 'add': result = a + b; break;\n  case 'sub': result = a - b; break;\n  case 'mul': result = a * b; break;\n  case 'div': result = b !== 0 ? a / b : 'Division by zero'; break;\n  default: return { status: 400, body: { error: 'Unknown operation' } };\n}\nreturn {\n  status: 200,\n  headers: { 'x-computed-by': 'script-engine' },\n  body: { operation: op, result: result }\n};",
+  "scriptTimeoutMs": 2000
+}

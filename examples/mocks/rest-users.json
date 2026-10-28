@@ -1,0 +1,10 @@
+{
+  "name": "User List REST",
+  "method": "*",
+  "path": "/api/users",
+  "type": "rest",
+  "restInitialState": [
+    {"id": "1", "name": "Alice"},
+    {"id": "2", "name": "Bob"}
+  ]
+}

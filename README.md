@@ -59,6 +59,7 @@ The server will start on port 8000 by default. Access the UI at `http://localhos
 - `POSTGRES_URL`: PostgreSQL connection URL. Used only if `DB_DRIVER=postgres`.
 - `SCRIPT_TIMEOUT_MS`: Script execution timeout in milliseconds (default: 2000).
 - `POOL_MAX_CONNECTIONS`: Maximum number of PostgreSQL connections in the pool (default: 10).
+- `MOCKS_DIR`: Path to a directory of `.json` mock files to load at startup. Each file should contain a single mock definition. Invalid files are skipped with a warning.
 
 ### Docker
 
@@ -76,6 +77,29 @@ To run without PostgreSQL (in-memory mode):
 docker build -t done-mock .
 docker run -p 8000:8000 -e DB_DRIVER=memory done-mock
 ```
+
+### Seeding Mocks at Startup
+
+Load mocks from a directory of JSON files by setting the `MOCKS_DIR` environment variable:
+
+```bash
+MOCKS_DIR=./examples/mocks cargo run
+```
+
+With Docker, mount a directory containing mock JSON files:
+
+```bash
+docker run -p 8000:8000 -v ./examples/mocks:/app/mocks:ro -e MOCKS_DIR=/app/mocks done-mock
+```
+
+Example mock files are available in the `examples/mocks/` directory.
+
+### Bulk Admin API
+
+You can also load mocks programmatically after the server starts:
+
+- **`POST /__admin/mocks/bulk`**: Accepts a JSON array of mock definitions and creates them all. Returns created mocks and any validation errors.
+- **`POST /__admin/mocks/reset`**: Deletes all mocks and resets sequence counters. Useful for test isolation.
 
 ## Development
 

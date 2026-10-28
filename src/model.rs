@@ -184,6 +184,60 @@ pub fn default_iso_now() -> String {
     Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
 }
 
+impl Mock {
+    /// Validates a mock's required fields based on its type.
+    ///
+    /// Returns `Ok(())` if the mock is valid, or an error message describing
+    /// what is missing or incorrect.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        if self.name.trim().is_empty() {
+            return Err("Field 'name' is required");
+        }
+        if self.method.trim().is_empty() {
+            return Err("Field 'method' is required");
+        }
+        if self.path.trim().is_empty() {
+            return Err("Field 'path' is required");
+        }
+        if self.path.starts_with("/__admin") {
+            return Err("Field 'path' cannot start with '/__admin'");
+        }
+
+        match self.mock_type {
+            MockType::Static => {
+                if self.response.is_none() {
+                    return Err("Static mock requires 'response' object");
+                }
+            }
+            MockType::Conditional => {
+                let conditions = self.conditions.as_deref().unwrap_or(&[]);
+                if conditions.is_empty() {
+                    return Err(
+                        "Conditional mock requires 'conditions' array with at least 1 item",
+                    );
+                }
+            }
+            MockType::Sequence => {
+                let sequence = self.sequence.as_deref().unwrap_or(&[]);
+                if sequence.is_empty() {
+                    return Err("Sequence mock requires 'sequence' array with at least 1 item");
+                }
+            }
+            MockType::Script => {
+                let script = self.script.as_deref().unwrap_or("").trim();
+                if script.is_empty() {
+                    return Err("Script mock requires non-empty 'script' field");
+                }
+            }
+            MockType::Rest => {
+                // restInitialState is optional
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// Builder pattern for fluent construction of `Mock`.
 ///
 /// Allows building mocks in a cleaner way, especially in tests,

@@ -20,6 +20,8 @@ pub fn create_admin_router() -> Router<MockServerState> {
     Router::new()
         .route("/__admin/health", get(health_check))
         .route("/__admin/mocks", get(list_mocks).post(create_mock))
+        .route("/__admin/mocks/bulk", post(bulk_create_mocks))
+        .route("/__admin/mocks/reset", post(reset_all_mocks))
         .route(
             "/__admin/mocks/{id}",
             get(get_mock).put(update_mock).delete(delete_mock),
@@ -47,57 +49,11 @@ async fn list_mocks(State(state): State<MockServerState>) -> impl IntoResponse {
     result.into_response()
 }
 
-fn validate_mock(mock: &Mock) -> Result<(), &'static str> {
-    if mock.name.trim().is_empty() {
-        return Err("Field 'name' is required");
-    }
-    if mock.method.trim().is_empty() {
-        return Err("Field 'method' is required");
-    }
-    if mock.path.trim().is_empty() {
-        return Err("Field 'path' is required");
-    }
-    if mock.path.starts_with("/__admin") {
-        return Err("Field 'path' cannot start with '/__admin'");
-    }
-
-    match mock.mock_type {
-        MockType::Static => {
-            if mock.response.is_none() {
-                return Err("Static mock requires 'response' object");
-            }
-        }
-        MockType::Conditional => {
-            let conditions = mock.conditions.as_deref().unwrap_or(&[]);
-            if conditions.is_empty() {
-                return Err("Conditional mock requires 'conditions' array with at least 1 item");
-            }
-        }
-        MockType::Sequence => {
-            let sequence = mock.sequence.as_deref().unwrap_or(&[]);
-            if sequence.is_empty() {
-                return Err("Sequence mock requires 'sequence' array with at least 1 item");
-            }
-        }
-        MockType::Script => {
-            let script = mock.script.as_deref().unwrap_or("").trim();
-            if script.is_empty() {
-                return Err("Script mock requires non-empty 'script' field");
-            }
-        }
-        MockType::Rest => {
-            // restInitialState is optional
-        }
-    }
-
-    Ok(())
-}
-
 async fn create_mock(
     State(state): State<MockServerState>,
     Json(mock): Json<Mock>,
 ) -> impl IntoResponse {
-    if let Err(msg) = validate_mock(&mock) {
+    if let Err(msg) = mock.validate() {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "Validation Error", "message": msg })),
@@ -203,6 +159,70 @@ async fn reset_mock(
     }
 
     (StatusCode::OK, Json(json!({ "success": true })))
+}
+
+async fn bulk_create_mocks(
+    State(state): State<MockServerState>,
+    Json(mocks): Json<Vec<Mock>>,
+) -> impl IntoResponse {
+    let mut created = Vec::new();
+    let mut errors = Vec::new();
+
+    for (i, mock) in mocks.into_iter().enumerate() {
+        if let Err(msg) = mock.validate() {
+            errors.push(json!({ "index": i, "error": msg }));
+            continue;
+        }
+        match state.store.create(mock).await {
+            Ok(created_mock) => created.push(created_mock),
+            Err(err) => {
+                errors.push(json!({ "index": i, "error": err.to_string() }));
+            }
+        }
+    }
+
+    if created.is_empty() && !errors.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "All mocks failed validation", "details": errors })),
+        )
+            .into_response();
+    }
+
+    state.refresh_cache().await;
+
+    let response = if errors.is_empty() {
+        json!({ "created": created })
+    } else {
+        json!({ "created": created, "errors": errors })
+    };
+
+    (StatusCode::CREATED, Json(response)).into_response()
+}
+
+async fn reset_all_mocks(State(state): State<MockServerState>) -> impl IntoResponse {
+    let mocks = match state.store.list().await {
+        Ok(m) => m,
+        Err(err) => return store_error_response(err).into_response(),
+    };
+
+    let mut deleted = 0;
+    for mock in &mocks {
+        state.sequence_state.reset(&mock.id);
+        if let Err(err) = state.store.delete(&mock.id).await {
+            tracing::error!(mock_id = %mock.id, error = %err, "Failed to delete mock during reset");
+        } else {
+            deleted += 1;
+        }
+    }
+
+    state.refresh_cache().await;
+
+    (
+        StatusCode::OK,
+        Json(json!({ "success": true, "deleted": deleted })),
+    )
+        .into_response()
 }
 
 async fn livefeed_sse(
