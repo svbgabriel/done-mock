@@ -40,8 +40,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Set up Docker BuildX
+        uses: docker/setup-buildx-action@v4
+
       - name: Build Docker image
-        run: docker build -t done-mock .
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
 
   docker-build-minimal:
     runs-on: ubuntu-latest
@@ -50,5 +57,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Set up Docker BuildX
+        uses: docker/setup-buildx-action@v4
+
       - name: Build minimal Docker image (no default features)
-        run: docker build -f Dockerfile.minimal -t done-mock-minimal .
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile.minimal
+          platforms: linux/amd64,linux/arm64
+          push: false
