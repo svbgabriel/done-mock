@@ -1,6 +1,7 @@
 # Build stage - statically linked binary via musl-cross
-# This image works on any host architecture
-FROM ghcr.io/rust-cross/rust-musl-cross:x86_64-musl AS builder
+# Supports linux/amd64 (x86_64) and linux/arm64 (aarch64)
+ARG TARGET_ARCH=x86_64
+FROM ghcr.io/rust-cross/rust-musl-cross:${TARGET_ARCH}-musl AS builder
 WORKDIR /home/rust/src
 
 # Copy manifest files first for dependency caching
@@ -17,12 +18,14 @@ COPY ui/ ./ui/
 RUN cargo build --release --locked
 
 # Strip binary to reduce size
-RUN musl-strip target/x86_64-unknown-linux-musl/release/done-mock
+ARG TARGET_ARCH
+RUN musl-strip target/${TARGET_ARCH}-unknown-linux-musl/release/done-mock
 
 # Production stage - static distroless (no C standard library needed)
 FROM gcr.io/distroless/static-debian13:nonroot
 WORKDIR /app
-COPY --chown=nonroot:nonroot --from=builder /home/rust/src/target/x86_64-unknown-linux-musl/release/done-mock ./done-mock
+ARG TARGET_ARCH
+COPY --chown=nonroot:nonroot --from=builder /home/rust/src/target/${TARGET_ARCH}-unknown-linux-musl/release/done-mock ./done-mock
 COPY --chown=nonroot:nonroot --from=builder /home/rust/src/ui ./ui
 EXPOSE 8000
 ENTRYPOINT ["./done-mock"]
