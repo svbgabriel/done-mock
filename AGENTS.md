@@ -305,6 +305,29 @@ The Docker image builds with all default features. A minimal image can be built 
 - This image is intended for use with testcontainers, where only the in-memory store is needed.
 - Build locally with: `docker build -f Dockerfile.minimal -t done-mock-minimal .`
 
+### Multi-Architecture Support
+
+Both Dockerfiles support `linux/amd64` (x86_64) and `linux/arm64` (aarch64) via the `TARGET_ARCH` build argument:
+
+- The builder image `ghcr.io/rust-cross/rust-musl-cross:${TARGET_ARCH}-musl` is selected based on the target architecture.
+- The production stage copies the binary from `target/${TARGET_ARCH}-unknown-linux-musl/release/`.
+
+Build for a specific architecture:
+
+```bash
+# AMD64 (default)
+docker build --build-arg TARGET_ARCH=x86_64 -t done-mock .
+
+# ARM64
+docker build --build-arg TARGET_ARCH=aarch64 -t done-mock-arm64 .
+```
+
+Build a multi-arch manifest with Buildx:
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t done-mock --push .
+```
+
 ### GitHub Actions
 
 - CI workflow in `.github/workflows/rust.yml` runs three jobs:
@@ -441,9 +464,10 @@ pub fn find_best_match(index: &MockIndex, req: &MockRequest) -> MatchResult {
 
 ### Dockerfile
 
-The project uses a **Docker multi-stage build** that produces a **statically linked binary** via the `x86_64-unknown-linux-musl` target:
+The project uses a **Docker multi-stage build** that produces a **statically linked binary** supporting multiple architectures:
 
-- **Builder stage**: `ghcr.io/rust-cross/rust-musl-cross:x86_64-musl` — pre-configured image with musl toolchain, works on any host architecture (including M1/M2 Macs via QEMU). The target is set as the default, so `cargo build --release` automatically compiles for musl.
+- **Multi-arch support**: Both `linux/amd64` (x86_64) and `linux/arm64` (aarch64) are supported via the `TARGET_ARCH` build argument (default: `x86_64`).
+- **Builder stage**: `ghcr.io/rust-cross/rust-musl-cross:${TARGET_ARCH}-musl` — pre-configured image with musl toolchain for the target architecture. Works on any host architecture (including M Macs via QEMU). The target is set as the default, so `cargo build --release` automatically compiles for musl.
 - **Build command**: `cargo build --release --locked` produces a fully static binary with no dynamic library dependencies.
 - **Binary stripping**: `musl-strip` reduces the binary size after building.
 - **Production stage**: `gcr.io/distroless/static-debian13:nonroot` — the `static` variant is designed for statically linked binaries; it has a smaller attack surface and does not include the C standard library.
@@ -452,21 +476,33 @@ The project uses a **Docker multi-stage build** that produces a **statically lin
 Build the image locally with:
 
 ```bash
+# Build for AMD64 (default)
 docker build -t done-mock .
+
+# Build for ARM64
+docker build --build-arg TARGET_ARCH=aarch64 -t done-mock-arm64 .
+
+# Build multi-arch manifest (requires Buildx)
+docker buildx build --platform linux/amd64,linux/arm64 -t done-mock --push .
 ```
 
 ### Dockerfile.minimal
 
 The `Dockerfile.minimal` produces a **lightweight image** compiled with `--no-default-features`, excluding PostgreSQL, script engine, and UI components. This image is intended for use with **testcontainers**, where only the in-memory store is needed.
 
-- Uses the same musl-cross builder stage as the main Dockerfile.
+- Uses the same multi-arch musl-cross builder stage as the main Dockerfile.
 - Builds with `cargo build --release --locked --no-default-features`.
 - Does not include the `ui/` directory in the final image (no static assets needed).
+- Supports the same `TARGET_ARCH` argument for ARM64 builds.
 
 Build the minimal image locally with:
 
 ```bash
+# Build for AMD64 (default)
 docker build -f Dockerfile.minimal -t done-mock-minimal .
+
+# Build for ARM64
+docker build -f Dockerfile.minimal --build-arg TARGET_ARCH=aarch64 -t done-mock-minimal-arm64 .
 ```
 
 ### docker-compose.yml

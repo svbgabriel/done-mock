@@ -78,6 +78,26 @@ docker build -t done-mock .
 docker run -p 8000:8000 -e DB_DRIVER=memory done-mock
 ```
 
+#### Multi-Architecture Support
+
+The Dockerfile supports both `linux/amd64` (x86_64) and `linux/arm64` (aarch64) architectures. The builder image is selected based on the target architecture via the `TARGET_ARCH` argument.
+
+Build for a specific architecture:
+
+```bash
+# Build for AMD64 (default)
+docker build --build-arg TARGET_ARCH=x86_64 -t done-mock .
+
+# Build for ARM64
+docker build --build-arg TARGET_ARCH=aarch64 -t done-mock-arm64 .
+```
+
+Build a multi-arch manifest (requires Docker Buildx):
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t done-mock --push .
+```
+
 ### Seeding Mocks at Startup
 
 Load mocks from a directory of JSON files by setting the `MOCKS_DIR` environment variable:
